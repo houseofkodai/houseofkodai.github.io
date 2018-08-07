@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>imageCapture webAPI demo</title>
+<style>
+</style>
+</head>
+<body>
+<video autoplay style="display:none;"></video>
+<canvas id="grabFrameCanvas"></canvas>
+<script>
+grabFrameCanvas = null
+grabFrameCtx = null
+
+function drawCanvas(canvas, img) {
+  let ctx = canvas.getContext('2d')
+  if (!ctx) return
+  canvas.width = img.width
+  canvas.height = img.height
+  ctx.drawImage(img,0,0)
+
+  let imgData = ctx.getImageData(0,0,img.width,img.height)
+  let pixels = imgData.data
+  for (var i=0; i<pixels.length; i+=4) {
+   let g = pixels[i]*.3 + pixels[i+1]*.59 + pixels[i+2]*.11
+   pixels[i]=g
+   pixels[i+1]=g
+   pixels[i+2]=g
+  }
+  ctx.putImageData(imgData,0,0,0,0,imgData.width,imgData.height)
+}
+
+grabFrame = function() {
+  if (!grabFrameCanvas) return
+  imageCapture.grabFrame().then(imageBitmap => {
+    drawCanvas(grabFrameCanvas, imageBitmap)
+  })
+  requestAnimationFrame(grabFrame)
+}
+
+main = function() {
+  grabFrameCanvas = document.querySelector('#grabFrameCanvas')
+  grabFrameCtx = grabFrameCanvas.getContext('2d')
+  document.querySelector('video').addEventListener('play', grabFrame)
+  navigator.mediaDevices.getUserMedia({video: true}).then(mediaStream => {
+    document.querySelector('video').srcObject = mediaStream
+    imageCapture = new ImageCapture(mediaStream.getVideoTracks()[0])
+  }).catch(error => {
+    if (error) console.log(error)
+  })
+}
+
+window.addEventListener('load', main, false);
+</script>
+  
+</body>
+</html>
