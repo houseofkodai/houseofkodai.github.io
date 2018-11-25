@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<!--
+  2018 NOV 25: karthik@houseofkodai.in
+  -->
+<html lang="en">
+<head>
+<meta name="viewport" content="minimal-ui, width=device-width, initial-scale=1">
+<meta charset="utf-8">
+<meta name="mobile-web-app-capable" content="yes">
+
+<title>spire:btsnoop:v1</title>
+
+<style>
+html,body {height:100%; padding:0; margin:0;}
+body {
+  width:100%;
+  height:100%;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  flex-direction:column;
+}
+</style>
+</head>
+
+<body>
+<noscript>You'll need to use javascript enabled browser.</noscript>
+<script>
+var QS = function() {var m={};(window.location.search || '?').substr(1).replace(/([^&=]+)=?([^&]*)(?:&+|$)/g, function(match, k, v) {m[k] = v;});return m}()
+var _ = {}
+
+DataView.prototype.getUint64 = function(byteOffset, littleEndian) {
+  //https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/DataView
+  const left =  this.getUint32(byteOffset, littleEndian)
+  const right = this.getUint32(byteOffset+4, littleEndian)
+  const combined = littleEndian? left + 2**32*right : 2**32*left + right
+  //if (!Number.isSafeInteger(combined)) console.warn(combined, 'exceeds MAX_SAFE_INTEGER. Precision may be lost')
+  return combined
+}
+
+function parse(arrayBuffer) {
+  let d3data = []
+  let dv = new DataView(arrayBuffer)
+  let i = 0
+
+  //file-header = 8+4+4 btsnoop\n<version><data_link_type>
+  let btsnoop = [98, 116, 115, 110, 111, 111, 112, 0]
+  for (;i<btsnoop.length;i++) {
+    if (btsnoop[i] != dv.getUint8(i)) {
+      log('err: parse/not-btsnoop')
+      return d3data
+    }
+  }
+  if (1 != dv.getUint32(i)) {
+    log('err: parse/unsupported-version ('+u32+')')
+    return d3data
+  }
+  i += 4
+  if (1002 != dv.getUint32(i)) {
+    log('err: parse/unsupported-data_link_type ('+u32+')')
+    return d3data
+  }
+  i += 4
+
+  //array-of-records
+  //interested only in hci_pkt_type of ACL_DATA - L2CAP - Handle_Value_Notification
+  let min = Number.MAX_SAFE_INTEGER
+  let max = Number.MIN_SAFE_INTEGER
+  while (i < arrayBuffer.byteLength) {
+    // record-header = 24 bytes =4 + 4 + 4 + 4 + 8
+    let len = dv.getUint32(i)
+    i += 16 //skip inc_len, flags, drops
+    //timestamp microseconds-to-milliseconds offset is 1/1/2000 as used by js instead of 1/1/1 as used by bt
+    let time64 = new Date((dv.getUint64(i)-62168256000000000)/1000)
+    i += 8
+    //record-data = len bytes
+    if ((32 == len) && (2 == dv.getUint8(i)) && (4 == dv.getUint16(i+6))) {
+      //skip 12 header-bits to get SpireDataPoint 5 ints = {spu, spuGain, x, y, z}
+      //1st entry is timestamp in milliseconds starting from first sample
+      //records.push([time64, spu, dv.getUint32(i+16,true), dv.getUint32(i+20,true), dv.getUint32(i+24,true), dv.getUint32(i+28,true)])
+      let spu = dv.getUint32(i+12,true)
+      if (spu < min) { min = spu } else if (spu > max) { max = spu }
+      d3data.push([new Date(time64), spu])
+    }
+    i += len //increment-index-record-data-bytes
+  }
+  return d3data
+}
+
+function drawZoomGraph(data) {
+  let margin = {top: 20, right: 20, bottom: 30, left: 40}
+  let width = 960
+  let height = 500
+  let dwidth = width - margin.left - margin.right
+  let dheight = height - margin.top - margin.bottom
+
+  let svg = d3.select('body').append('svg')
+              .attr('viewBox', `0 0 ${width} ${height}`)
+              .attr('preserveAspectRatio', 'xMinYMid')
+
+  let g = svg.append('g').attr('transform', `translate(${margin.left}, ${margin.top})`)
+
+  let xScale = d3.scaleTime().domain(d3.extent(data, function(d){return d[0]})).range([0, dwidth])
+  let xAxis = d3.axisBottom(xScale)
+  let yScale = d3.scaleLinear().range([dheight, 0])
+  let yAxis = d3.axisLeft(yScale).ticks(10,'s')
+
+  let Y = function(d) { return yScale(d[1]) }
+  let area = d3.area().curve(d3.curveStepAfter).y0(yScale(0)).y1(Y)
+  let areaPath = g.append("path")
+                  .attr("clip-path", "url(#clip)")
+                  .attr("fill", "steelblue")
+  let yGroup = g.append("g")
+  let xGroup = g.append("g").attr('transform', `translate(0,${dheight})`)
+  let zoomed = function() {
+    var xz = d3.event.transform.rescaleX(xScale)
+    xGroup.call(xAxis.scale(xz))
+    areaPath.attr("d", area.x(function(d) { return xz(d[0]) }))
+  }
+  let zoom = d3.zoom()
+               .scaleExtent([1, 100])
+               .translateExtent([[-dwidth, -Infinity], [2 * dwidth, Infinity]])
+               .on("zoom", zoomed)
+  let zoomRect = svg.append("rect")
+                    .attr("width", dwidth)
+                    .attr("height", dheight)
+                    .attr("fill", "none")
+                    .attr("pointer-events", "all")
+                    .call(zoom)
+  g.append("clipPath")
+      .attr("id", "clip")
+    .append("rect")
+      .attr("width", dwidth)
+      .attr("height", dheight)
+
+  let xExtent = d3.extent(data, function(d) { return d[0] })
+  zoom.translateExtent([[xScale(xExtent[0]), -Infinity], [xScale(xExtent[1]), Infinity]])
+  yScale.domain([0, d3.max(data, function(d) { return d[1] })])
+  yGroup.call(yAxis).select(".domain").remove()
+  areaPath.datum(data)
+  zoomRect.call(zoom.transform, d3.zoomIdentity)
+}
+
+function main() {
+  _.fileInput = document.createElement('input')
+  _.fileInput.type = 'file'
+  _.fileInput.accept='.cfa, .log'
+  _.fileInput.onchange = function(e) {
+    let fReader = new FileReader()
+    fReader.onload = function(e) {
+      let d3data = parse(e.target.result)
+      if (d3data.length > 0) {
+        _.fileInput.style.display = 'none'
+        drawZoomGraph(d3data)
+      }
+    }
+    _.fileName = this.files[0].name
+    _.fileSize = this.files[0].size
+    fReader.readAsArrayBuffer(this.files[0])
+  }
+  document.body.appendChild(_.fileInput)
+}
+
+if ('addEventListener' in window) window.addEventListener('load', function() {
+  function checkFeatures() {
+    return 'querySelector' in document &&
+      'serviceWorker' in navigator
+  }
+
+  if (!checkFeatures()) {
+    document.body.style.backgroundColor = 'red'
+    document.body.color = 'white'
+    document.body.innerHTML = "<p>Need Browser features supported by Chrome >59, Firefox >20</p>"
+    return
+  }
+
+  function loadScript(sURL,fOnLoad) {
+    function _onLoad() {
+      this.onreadystatechange = null
+      this.onload = null
+      window.setTimeout(fOnLoad,20)
+    }
+    var _s = document.createElement('script')
+    _s.type = 'text/javascript'
+    _s.async = true
+    _s.src = sURL
+    _s.defer = true
+    if (fOnLoad) {
+      _s.onreadystatechange = function() {
+        if (this.readyState in {'loaded':true,'complete':true}) _onLoad()
+      }
+      _s.onload = _onLoad
+    }
+    document.getElementsByTagName('head')[0].appendChild(_s)
+  }
+  loadScript('https://d3js.org/d3.v5.min.js', main)
+}, false)
+</script>
+</body>
+</html>
