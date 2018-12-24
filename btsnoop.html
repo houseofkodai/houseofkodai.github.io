@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <!--
   2018 NOV 25: karthik@houseofkodai.in
+  2018 DEC 24: karthik@houseofkodai.in
+    * added querystring params to produce csv
   -->
 <html lang="en">
 <head>
@@ -8,7 +10,7 @@
 <meta charset="utf-8">
 <meta name="mobile-web-app-capable" content="yes">
 
-<title>spire:btsnoop:v1</title>
+<title>spire:btsnoop:v2</title>
 
 <style>
 html,body {height:100%; padding:0; margin:0;}
@@ -20,6 +22,7 @@ body {
   align-items:center;
   flex-direction:column;
 }
+pre {width:100%;height:100%}
 </style>
 </head>
 
@@ -39,7 +42,7 @@ DataView.prototype.getUint64 = function(byteOffset, littleEndian) {
 }
 
 function parse(arrayBuffer) {
-  let d3data = []
+  let r = {records:[], d3data:[]}
   let dv = new DataView(arrayBuffer)
   let i = 0
 
@@ -47,44 +50,48 @@ function parse(arrayBuffer) {
   let btsnoop = [98, 116, 115, 110, 111, 111, 112, 0]
   for (;i<btsnoop.length;i++) {
     if (btsnoop[i] != dv.getUint8(i)) {
-      log('err: parse/not-btsnoop')
-      return d3data
+      r.err = 'err: parse/not-btsnoop'
+      return r
     }
   }
   if (1 != dv.getUint32(i)) {
-    log('err: parse/unsupported-version ('+u32+')')
-    return d3data
+    r.err = 'err: parse/unsupported-version ('+u32+')'
+    return r
   }
   i += 4
   if (1002 != dv.getUint32(i)) {
-    log('err: parse/unsupported-data_link_type ('+u32+')')
-    return d3data
+    r.err = 'err: parse/unsupported-data_link_type ('+u32+')'
+    return r
   }
   i += 4
 
   //array-of-records
   //interested only in hci_pkt_type of ACL_DATA - L2CAP - Handle_Value_Notification
-  let min = Number.MAX_SAFE_INTEGER
-  let max = Number.MIN_SAFE_INTEGER
+  r.min = [Number.MIN_SAFE_INTEGER,Number.MIN_SAFE_INTEGER,Number.MIN_SAFE_INTEGER,Number.MIN_SAFE_INTEGER,Number.MIN_SAFE_INTEGER]
+  r.max = [Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER,Number.MAX_SAFE_INTEGER]
   while (i < arrayBuffer.byteLength) {
     // record-header = 24 bytes =4 + 4 + 4 + 4 + 8
     let len = dv.getUint32(i)
     i += 16 //skip inc_len, flags, drops
     //timestamp microseconds-to-milliseconds offset is 1/1/2000 as used by js instead of 1/1/1 as used by bt
-    let time64 = new Date((dv.getUint64(i)-62168256000000000)/1000)
+    let time64 = (dv.getUint64(i)-62168256000000000)/1000
     i += 8
     //record-data = len bytes
     if ((32 == len) && (2 == dv.getUint8(i)) && (4 == dv.getUint16(i+6))) {
       //skip 12 header-bits to get SpireDataPoint 5 ints = {spu, spuGain, x, y, z}
       //1st entry is timestamp in milliseconds starting from first sample
-      //records.push([time64, spu, dv.getUint32(i+16,true), dv.getUint32(i+20,true), dv.getUint32(i+24,true), dv.getUint32(i+28,true)])
-      let spu = dv.getUint32(i+12,true)
-      if (spu < min) { min = spu } else if (spu > max) { max = spu }
-      d3data.push([new Date(time64), spu])
+      //let spu = dv.getUint32(i+12,true)
+      r.records.push([time64, dv.getUint32(i+12,true), dv.getUint32(i+16,true), dv.getUint32(i+20,true), dv.getUint32(i+24,true), dv.getUint32(i+28,true)])
+      r.d3data.push([new Date(time64), dv.getUint32(i+12,true)])
+
+      for (let x=0; x<5; x++) {
+        let n = dv.getUint32(i+12+(x*4),true)
+        if (n < r.min[i]) { r.min[i] = n } else if (n > r.max[i]) { r.max[i] = n }
+      }
     }
     i += len //increment-index-record-data-bytes
   }
-  return d3data
+  return r
 }
 
 function drawZoomGraph(data) {
@@ -141,6 +148,10 @@ function drawZoomGraph(data) {
   zoomRect.call(zoom.transform, d3.zoomIdentity)
 }
 
+function log(data) {
+  //
+}
+
 function main() {
   _.fileInput = document.createElement('input')
   _.fileInput.type = 'file'
@@ -148,10 +159,17 @@ function main() {
   _.fileInput.onchange = function(e) {
     let fReader = new FileReader()
     fReader.onload = function(e) {
-      let d3data = parse(e.target.result)
-      if (d3data.length > 0) {
+      _.r = parse(e.target.result)
+      if (_.r.err) {
+        console.log(_.r.err)
+      } else if (QS.csv) {
+        _.csv.style.display = 'block'
         _.fileInput.style.display = 'none'
-        drawZoomGraph(d3data)
+        let a = [];  for(let i=0;i<_.r.records.length;i++) { a.push(_.r.records[i].join(',')) }
+        _.csv.innerText = a.join('\n')
+      } else if (_.r.d3data.length > 0) {
+        _.fileInput.style.display = 'none'
+        drawZoomGraph(_.r.d3data)
       }
     }
     _.fileName = this.files[0].name
@@ -159,6 +177,9 @@ function main() {
     fReader.readAsArrayBuffer(this.files[0])
   }
   document.body.appendChild(_.fileInput)
+  _.csv = document.createElement('pre')
+  _.csv.style.display = 'none'
+  document.body.appendChild(_.csv)
 }
 
 if ('addEventListener' in window) window.addEventListener('load', function() {
@@ -193,7 +214,8 @@ if ('addEventListener' in window) window.addEventListener('load', function() {
     }
     document.getElementsByTagName('head')[0].appendChild(_s)
   }
-  loadScript('https://d3js.org/d3.v5.min.js', main)
+  //loadScript('https://d3js.org/d3.v5.min.js', main)
+  loadScript('/d3.v5.min.js', main)
 }, false)
 </script>
 </body>
