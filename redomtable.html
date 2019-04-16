@@ -55,6 +55,7 @@ class Tc {
     this._owner.onCellClick(this._isHead,this._index,this._data)
   }
   update(data, index, items, context) {
+    this.el._data = data
     if (this.el._isHead) {
       let tbl = this.el._owner
       if ((index + 1) == Math.abs(tbl.sortIndex)) {
