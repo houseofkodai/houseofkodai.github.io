@@ -9,16 +9,36 @@ body {margin:0 auto;max-width:50rem;font-family:"Roboto", "Helvetica", "Arial", 
 img, object, embed {max-width:100%;height:auto;}
 th {cursor:pointer;text-align:left;}
 .tr {text-align:right;}
-.tc {text-align:center;}
-.ml1 {margin-left:1rem;}
+.ml1 {margin-left:.5rem;}
 </style>
 <script src="https://redom.js.org/redom.min.js"></script>
-<title>table in reDOM</title>
+<title>reDOM Table</title>
 </head>
 <body>
 <script>
 const QS = function() {var m={};(window.location.search || '?').substr(1).replace(/([^&=]+)=?([^&]*)(?:&+|$)/g, function(match, k, v) {m[k] = v;});return m}()
 const { el, mount, list, text } = redom
+
+class TPageNav {
+  constructor(owner, tag='div', showNavButtons=true) {
+    this.text = text()
+    this.prev = el('button',{onclick:function(evt){owner.onPageClick(-1)}},'<')
+    this.next = el('button',{onclick:function(evt){owner.onPageClick(1)}},'>')
+    this.filter = el('input.ml1',{type:'text',autofocus:true,placeholder:'filter by',onkeypress:function(evt){owner.onFilterKey(evt.key, evt.keyCode, this.value)}})
+    if (showNavButtons) {
+      this.el = el(tag, [this.filter, this.prev, this.next, this.text])
+    } else {
+      this.el = el(tag, [this.text, this.filter])
+    }
+    this.el._owner = owner
+  }
+  update(txt) {
+    this.text.textContent = txt
+  }
+  setFilter(txt) {
+    this.filter.value = txt
+  }
+}
 
 class Tc {
   constructor(initData=[false,none]) {
@@ -62,28 +82,6 @@ class Tr {
   }
   update(data, index, items, context) {
     this.el.update(data, context)
-  }
-}
-
-class TPageNav {
-  constructor(owner, tag='div', showNavButtons=true) {
-    this.text = text()
-    this.prev = el('button',{onclick:function(evt){owner.onPageClick(-1)}},'<')
-    this.next = el('button',{onclick:function(evt){owner.onPageClick(1)}},'>')
-    this.filter = el('input.ml1',{type:'text',autofocus:true,placeholder:'filter by',onkeypress:function(evt){owner.onFilterKey(evt.key, evt.keyCode, this.value)}})
-    if (showNavButtons) {
-      this.el = el(tag, [this.prev, this.next, this.text, this.filter])
-    } else {
-      this.el = el(tag, [this.text, this.filter])
-      //this.el = el(tag, [el('span.fl',[this.prev, this.next, this.text]), el('span.fr',this.filter)])
-    }
-    this.el._owner = owner
-  }
-  update(start,end,count) {
-    this.text.textContent = ' ' + (start=(count>0)?start:0) + '-' + end + ' of ' + count
-  }
-  setFilter(txt) {
-    this.filter.value = txt
   }
 }
 
@@ -183,7 +181,7 @@ class Table {
     } else {
       this.pageEnd = (this.subset.length < this.pageLength) ? this.subset.length : this.pageLength
     }
-    this.caption.update((this.pageStart+1), this.pageEnd, this.subset.length)
+    this.caption.update(' ' + ((this.subset.length>0)?(this.pageStart+1):0) + '-' + this.pageEnd + ' of ' + this.subset.length)
     this.thead.update(this.data.fields)
     if ((this.pageLength > 0) && (this.pageEnd < this.subset.length)) {
       this.tbody.update(this.subset.slice(this.pageStart,this.pageEnd))
@@ -222,7 +220,7 @@ class Table {
         this.pageEnd = this.pageStart+this.pageLength
       }
     }
-    this.caption.update((this.pageStart+1), this.pageEnd, this.subset.length)
+    this.caption.update(' ' + ((this.subset.length>0)?(this.pageStart+1):0) + '-' + this.pageEnd + ' of ' + this.subset.length)
     if (this.pageLength > 0) {
       this.tbody.update(this.subset.slice(this.pageStart,this.pageEnd))
     } else {
@@ -306,8 +304,10 @@ function rndDataSet() {
 }
 
 const app = new Table(parseInt(QS.pageLength || 25))
+const rndUpdate = function(){app.update(rndDataSet())}
 function main() {
-  app.update(rndDataSet())
+  rndUpdate()
+  //window.setInterval(rndUpdate, 5000)
   mount(document.body, app)
 }
 window.addEventListener('load', function(){setTimeout(main,0)}, false)
