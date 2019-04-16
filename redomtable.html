@@ -1,0 +1,316 @@
+<!doctype html><html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+main {max-width:50rem; padding:1rem; margin:auto;}
+body {margin:0 auto;max-width:50rem;font-family:"Roboto", "Helvetica", "Arial", sans-serif;line-height:1.6;padding:1rem 1rem;color:#566b78;}
+@media(max-width:50rem) {body {padding:1rem;}}
+img, object, embed {max-width:100%;height:auto;}
+th {cursor:pointer;text-align:left;}
+.tr {text-align:right;}
+.tc {text-align:center;}
+.ml1 {margin-left:1rem;}
+</style>
+<script src="https://redom.js.org/redom.min.js"></script>
+<title>table in reDOM</title>
+</head>
+<body>
+<script>
+const QS = function() {var m={};(window.location.search || '?').substr(1).replace(/([^&=]+)=?([^&]*)(?:&+|$)/g, function(match, k, v) {m[k] = v;});return m}()
+const { el, mount, list, text } = redom
+
+class Tc {
+  constructor(initData=[false,none]) {
+    let tag = initData[0] ? 'th' : 'td'
+    this.el = el(tag, {onclick: this.onclick})
+    this.el._isHead = initData[0]
+    this.el._owner = initData[1]
+    this.el._formatfn = null
+  }
+  onmount() {
+    if (this.el._owner.data.cssclasses[this.el._index]) {
+      this.el.className = this.el._owner.data.cssclasses[this.el._index]
+    }
+  }
+  onclick(evt) {
+    this._owner.onCellClick(this._isHead,this._index,this._data)
+  }
+  update(data, index, items, context) {
+    this.el._data = data
+    this.el._index = index
+    let v = data
+    let tbl = this.el._owner
+    if (this.el._isHead) {
+      if ((index + 1) == Math.abs(tbl.sortIndex)) {
+        if (tbl.sortIndex > 0) {
+          v = v + '▲'
+        } else {
+          v = '▼' + v
+        }
+      }
+    } else if (tbl.data.formatfns[index]) {
+      v = tbl.data.formatfns[index](data)
+    }
+    this.el.textContent = v
+  }
+}
+
+class Tr {
+  constructor(initData) {
+    this.el = list('tr', Tc, null, initData)
+  }
+  update(data, index, items, context) {
+    this.el.update(data, context)
+  }
+}
+
+class TPageNav {
+  constructor(owner, tag='div', showNavButtons=true) {
+    this.text = text()
+    this.prev = el('button',{onclick:function(evt){owner.onPageClick(-1)}},'<')
+    this.next = el('button',{onclick:function(evt){owner.onPageClick(1)}},'>')
+    this.filter = el('input.ml1',{type:'text',autofocus:true,placeholder:'filter by',onkeypress:function(evt){owner.onFilterKey(evt.key, evt.keyCode, this.value)}})
+    if (showNavButtons) {
+      this.el = el(tag, [this.prev, this.next, this.text, this.filter])
+    } else {
+      this.el = el(tag, [this.text, this.filter])
+      //this.el = el(tag, [el('span.fl',[this.prev, this.next, this.text]), el('span.fr',this.filter)])
+    }
+    this.el._owner = owner
+  }
+  update(start,end,count) {
+    this.text.textContent = ' ' + (start=(count>0)?start:0) + '-' + end + ' of ' + count
+  }
+  setFilter(txt) {
+    this.filter.value = txt
+  }
+}
+
+class Table {
+  constructor(pageLength=100) {
+    this.data = {fields:[],data:[],formatfns:[]}
+    this.pageLength = pageLength
+    this.subset = []
+    this.filterIndex = 0
+    this.pageStart = 0
+    this.pageEnd = 0
+    this.sortIndex = 1
+
+    this.caption = new TPageNav(this, 'caption', (pageLength>0))
+    this.thead = list('tr', Tc, null, [true, this])
+    this.tbody = list('tbody', Tr, null, [false, this])
+    this.el = el('table', [this.caption, el('thead',this.thead), this.tbody])
+  }
+  update(data) {
+    this.data = data
+    this.subset = data.data
+    this.pageStart = 0
+    if (0 == this.pageLength) {
+      this.pageEnd = this.subset.length
+    } else {
+      this.pageEnd = (this.subset.length < this.pageLength) ? this.subset.length : this.pageLength
+    }
+
+    this.filterText = ''
+    this.filterIndex = null
+    this.sortIndex = -1
+
+    this.sort()
+  }
+  filter(filterText, filterIndex) {
+    if ((filterText != this.filterText) || 
+        (filterIndex != this.filterIndex)) {
+      if (0 == filterText.length) {
+        this.subset = this.data.data
+      } else {
+        if ('number' == typeof(filterIndex)) {
+          let typ = typeof(filterText)
+          this.subset = this.data.data.filter(function(x) {
+            if ('number' == typ) {
+              return (x[filterIndex] == filterText)
+            } else {
+              return x[filterIndex].toString().includes(filterText)
+            }
+          })
+        } else {
+          this.subset = this.data.data.filter(function(x) { 
+            let found=false
+            for (let i=0; ((!found) && (i<x.length)); i++) {
+              found = x[i].toString().includes(filterText)
+            }
+            return found
+          })
+        }
+      }
+      this.filterIndex = filterIndex
+      this.filterText = filterText
+      this.sort()
+    }
+  }
+  sort(columnIndex) {
+    /*
+      columnIndex is 0-start and sortIndex is 1-start to use negative for reverse
+      if not columnIndex - sort on existing order
+     */
+    if ('number' == typeof(columnIndex)) {
+      if (Math.abs(this.sortIndex) == (columnIndex + 1)) {
+        this.subset.reverse()
+        this.sortIndex = -this.sortIndex
+      } else {
+        function numCompare(a,b) {return a[columnIndex] - b[columnIndex]}
+        function strCompare(a,b) {
+          if (a[columnIndex] < b[columnIndex]) return -1
+          if (a[columnIndex] > b[columnIndex]) return 1
+        }
+        if ('string' == typeof(this.subset[0][columnIndex])) {
+          this.subset.sort(strCompare)
+        } else {
+          this.subset.sort(numCompare)
+        }
+        this.sortIndex = columnIndex+1
+      }
+    } else {
+      let i = Math.abs(this.sortIndex) - 1
+      this.subset.sort(function(a,b) {return a[i] - b[i]})
+      if (this.sortIndex < 0) {
+        this.subset.reverse()
+      }
+    }
+    this.pageStart = 0
+    if (0 == this.pageLength) {
+      this.pageEnd = this.subset.length
+    } else {
+      this.pageEnd = (this.subset.length < this.pageLength) ? this.subset.length : this.pageLength
+    }
+    this.caption.update((this.pageStart+1), this.pageEnd, this.subset.length)
+    this.thead.update(this.data.fields)
+    if ((this.pageLength > 0) && (this.pageEnd < this.subset.length)) {
+      this.tbody.update(this.subset.slice(this.pageStart,this.pageEnd))
+    } else {
+      this.tbody.update(this.subset)
+    }
+  }
+  onCellClick(isHead, columnIndex, value) {
+    if (isHead) {
+      this.sort(columnIndex)
+    } else {
+      if ((this.filterIndex == columnIndex) &&
+          (this.filterText == value)) {
+        this.filter('', 0)
+        this.caption.setFilter('')
+      } else {
+        this.filter(value, columnIndex)
+        this.caption.setFilter(this.data.fields[columnIndex]+':'+value)
+      }
+    }
+
+  }
+  onPageClick(pageOffset=1) {
+    if ((0 == this.pageLength) || (this.subset.length < this.pageLength)) {return}
+    if (pageOffset > 0) {
+      if (this.pageEnd < this.subset.length) {
+        this.pageStart += this.pageLength
+        this.pageEnd += this.pageLength
+        if (this.pageEnd > this.subset.length) {
+          this.pageEnd = this.subset.length
+        }
+      }
+    } else {
+      if (this.pageStart > 1) {
+        this.pageStart -= this.pageLength
+        this.pageEnd = this.pageStart+this.pageLength
+      }
+    }
+    this.caption.update((this.pageStart+1), this.pageEnd, this.subset.length)
+    if (this.pageLength > 0) {
+      this.tbody.update(this.subset.slice(this.pageStart,this.pageEnd))
+    } else {
+      this.tbody.update(this.subset)
+    }
+  }
+  onFilterKey(key, keyCode, value) {
+    if (13 == keyCode) {
+      let match = /([^:]+):(.+)/.exec(value)
+      if (match) {
+        let i = parseInt(match[1])
+        if (!i) {
+          i = this.data.fields.indexOf(match[1])
+        } else {
+          i -= 1 //zero-based-array
+          if ((i < 0) || (i >= this.data.fields.length)) {
+            i = -1
+          }
+        }
+        if (-1 == i) {
+          this.filter(value)
+        } else {
+          this.filter(match[2], i)
+        }
+
+      } else {
+        this.filter(value)
+      }
+    }
+  }
+}
+
+
+
+function rndDataSet() {
+  function rnd(max=100,min=0) {
+    return Math.floor(Math.random() * (max - min + 1)) + min
+  }
+  function rndIP() {
+    return rnd(1,254)+'.'+rnd(1,254)+'.'+rnd(1,254)+'.'+rnd(1,254)
+  }
+  function rndDstPorts() {
+    const a = [80,443,53,22,25,110]
+    return a[rnd(a.length-1)]
+  }
+
+  function formatnum(v,decimalplace=2,suffix='') {
+    const A = [[1000000000,'G'],[1000000,'M'],[1000,'k']]
+    for (i=0;i<A.length;i++) {
+      if (v > A[i][0]) return parseFloat(v/A[i][0]).toFixed(decimalplace)+A[i][1]+suffix
+    }
+    return v+suffix
+  }
+  function formatbyte(v,decimalplace=2) {
+    return formatnum(v,decimalplace,'B')
+  }
+  function formatime(t) {
+    function pad(n, width=2, z='0') {
+      n = n + ''
+      return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n
+    }
+    let d = new Date(t)
+    return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())
+  }
+  function formatProto(v) {
+    return ['UDP','TCP','ICMP'][(v%3)]
+  }
+
+
+  var data = []
+  var stime = new Date().getTime()
+  for (r=0;r<rnd(10000);r++) {
+    data.push([rnd((stime-3600000),stime),rndIP(),rnd(5000,65536),rndIP(),rndDstPorts(),rnd(2),rnd(1000),rnd(10000000),rnd(1000),rnd(1000000000)])
+  }
+  return {
+     fields: ['timeStamp', 'srcIP', 'srcPort', 'dstIP', 'dstPort', 'proto', 'outPkts', 'outBytes', 'inPkts', 'inBytes'],
+     cssclasses: [null,null,'tr',null,'tr',null,'tr','tr','tr','tr'],
+     formatfns: [formatime,null,null,null,null,formatProto,null,formatbyte,null,formatbyte],
+     data: data
+  }
+}
+
+const app = new Table(parseInt(QS.pageLength || 25))
+function main() {
+  app.update(rndDataSet())
+  mount(document.body, app)
+}
+window.addEventListener('load', function(){setTimeout(main,0)}, false)
+</script>
+</body>
+</html>
