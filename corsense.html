@@ -56,7 +56,9 @@ function onHeartRateData(event) {
 function btnClick(evt) {
   if (!bldev) {
     log('Selecting device to pair... ');
-    navigator.bluetooth.requestDevice({filters:[{namePrefix:'CorSense'}]})
+    navigator.bluetooth.requestDevice({filters:[{
+      optionalService: ['0000180d-0000-1000-8000-00805f9b34fb'],
+      namePrefix:'CorSense'}]})
     .then(function(device){
       bldev = device;
       bldev.addEventListener('gattserverdisconnected', onDisconnected);
