@@ -29,50 +29,53 @@ var chart;
 ts = new TimeSeries();
 var dv;
 
+function log(s) {
+  console.log(s);
+}
+
 function onHeartRateData(evt){ts.append(new Date().getTime(), evt.target.value.getUint16(5));}
 
 function onClick(evt) {
   if (!bldev) {
-    console.log('Selecting device to pair... ');
+    log('Selecting device to pair... ');
     navigator.bluetooth.requestDevice({filters:[{namePrefix:'CorSense'}]})
     .then(function(device){
       bldev = device;
-      bldev.addEventListener('gattserverdisconnected', function(evt){hrmCharacterstic = null;});
+      bldev.addEventListener('gattserverdisconnected', function(){hrmCharacterstic = null;});
       onClick();})
     .catch(function(error) {log(error);});
   } else if (!bldev.gatt.connected) {
-    console.log('Connecting to device '+bldev.name+'...');
+    log('Connecting to device '+bldev.name+'...');
     bldev.gatt.connect()
     .then(function(server){
-      console.log('Getting Service...');
+      log('Getting Service...');
       return server.getPrimaryService('heart_rate');})
     .then(function(service) {
-      console.log('Getting Charactistic...')
+      log('Getting Charactistic...')
       return service.getCharacteristic('heart_rate_measurement');})
     .then(function(characterstic){
       hrmCharacterstic = characterstic;
-      //_el.btnConnect.enabled = false;
       onClick();})
-    .catch(function(error) {console.log(error);});
+    .catch(function(error) {log(error);});
   } else if (hrmCharacterstic) {
     if (isStreaming) {
       hrmCharacterstic.stopNotifications()
       .then(function(){
-        console.log('> Notifications stopped');
+        log('> Notifications stopped');
         hrmCharacterstic.removeEventListener('characteristicvaluechanged', onHeartRateData);
         isStreaming = false;
         chart.stop();
       })
-      .catch(function(error) {console.log(error);});
+      .catch(function(error) {log(error);});
     } else {
       hrmCharacterstic.startNotifications()
       .then(function() {
-        console.log('> Notifications started');
+        log('> Notifications started');
         hrmCharacterstic.addEventListener('characteristicvaluechanged', onHeartRateData);
         isStreaming = true;
         chart.start();
       })
-      .catch(function(error) {console.log(error);});
+      .catch(function(error) {log(error);});
     }
   };
 }
