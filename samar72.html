@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-html, body {width:100%;height:100%;margin:0;box-sizing:border-box;}
+html, body {margin:0 auto;width:100%;height:100%;box-sizing:border-box;}
 img, object, embed, canvas {max-width:100%;height:auto;}
-body {background:#FAFAFA;}
+body {background:#FAFAFA;overflow: hidden;}
 
 .navbar {padding:.5rem;cursor:pointer;font-size:1.6rem;}
 .flr {display:flex;flex-direction:row;justify-content:space-between;}
@@ -25,6 +25,7 @@ div.smoothie-chart-tooltip {
   font-size: 1.4rem;
   pointer-events: none;
 }
+#chart {flex:1;}
 </style>
 <title>Great Adventures @ 72</title>
 </head>
@@ -68,8 +69,11 @@ _ts = new TimeSeries();
 _pause = false;
 
 function onHeartRateData(evt) {
-  _el.sl.innerText = evt.target.value.getUint8(1) + ' bpm';
-  _ts.append(new Date().getTime(), evt.target.value.getUint16(5));
+  let dv = evt.target.value;
+  let rr = dv.getUint16(5);
+  _rrlist.push(rr);
+  _el.sl.innerText = dv.getUint8(1) + ' bpm';
+  _ts.append(new Date().getTime(), rr);
 }
 
 function log(s) {
@@ -111,14 +115,14 @@ function onStartClick(evt) {
        _el.start.innerText = 'Start';
         _timer = null;
         _chart.stop();
-        log('Stopped.');
         _hrmCharacterstic.removeEventListener('characteristicvaluechanged', onHeartRateData);
+        log('Stopped.');
       })
       .catch(function(error) {log(error);});
     } else {
       _hrmCharacterstic.startNotifications()
       .then(function() {
-        log('> Notifications started');
+        _rrlist = [];
         _pause = false;
         _chart.start();
         _el.start.innerText = 'Stop'
@@ -142,7 +146,13 @@ function onChartDblClick(evt) {
 }
 
 function onSaveClick(evt) {
-  console.log('onSaveClick');
+  let a = document.createElement('a');
+  a.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(_rrlist.join('\n')));
+  a.setAttribute('download', ((new Date()).toISOString()+'.txt'));
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 function main() {
