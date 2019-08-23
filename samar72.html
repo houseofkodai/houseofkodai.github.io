@@ -53,8 +53,10 @@ div.smoothie-chart-tooltip {
  </div>
 </div>
 <div class="flr statusbar">
- <div class="fls" id="sl">~bpm</div>
- <div class="fle" id="sr">SDNN: ~</div>
+ <div class="fls" id="s1">~bpm</div>
+ <div class="fle" id="s2">SD: ~</div>
+ <div class="fle" id="s3">SD1: ~</div>
+ <div class="fle" id="s4">SD2: ~</div>
 </div>
 <canvas id="chart" style="width:100%;"></canvas>
 <script>
@@ -73,18 +75,33 @@ function log(s) {
   console.log(s);
 }
 
-function sdnn(rrlist) {
-  let n = rrlist.length;
-  let mean = rrlist.reduce((a,b) => a+b)/n;
-  return Math.sqrt(rrlist.map(x => Math.pow(x-mean,2)).reduce((a,b) => a+b)/n);  
+function sd(a) {
+  let n = a.length;
+  let mean = a.reduce((a,b) => a+b)/n;
+  return Math.sqrt(a.map(x => Math.pow(x-mean,2)).reduce((a,b) => a+b)/n);  
+}
+
+function adiff(a) {
+  let n = a.length;
+  if (1 == n) { return a; }
+  let r = [];
+  for (i=1;i<n;i++) { r.push((a[i]-a[i-1])) }
+  return r;
 }
 
 function onHeartRateData(evt) {
   let dv = evt.target.value;
   let rr = dv.getUint16(5);
   _rrlist.push(rr);
-  _el.sl.innerText = dv.getUint8(1) + ' bpm'
-  _el.sr.innerText = 'SDNN: ' + sdnn(_rrlist).toFixed(2);
+  _el.s1.innerText = dv.getUint8(1) + ' bpm'
+
+  let sdsd = sd(adiff(_rrlist));
+  let sdrr = sd(_rrlist);
+  let sd1 = (1 / Math.sqrt(2)) * sdsd //width of poincare cloud
+  let sd2 = Math.sqrt((2 * sdrr ** 2) - (0.5 * sdsd ** 2)) //length of poincare cloud
+  _el.s2.innerText = 'SD: ' + Math.round(sdrr) //.toFixed(2);
+  _el.s3.innerText = 'SD1: ' + Math.round(sd1) //.toFixed(2);
+  _el.s4.innerText = 'SD2: ' + Math.round(sd2) //.toFixed(2);
   _ts.append(new Date().getTime(), rr);
 }
 
@@ -168,8 +185,10 @@ function onSaveClick(evt) {
 function main() {
   _el.start = document.getElementById('start');
   _el.save = document.getElementById('save');
-  _el.sl = document.getElementById('sl');
-  _el.sr = document.getElementById('sr');
+  _el.s1 = document.getElementById('s1');
+  _el.s2 = document.getElementById('s2');
+  _el.s3 = document.getElementById('s3');
+  _el.s4 = document.getElementById('s4');
   _el.chart = document.getElementById('chart');
   _el.start.addEventListener('click', onStartClick);
   _el.save.addEventListener('click', onSaveClick);
