@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-html, body {margin:0 auto;width:100%;height:100%;box-sizing:border-box;}
+html, body {margin:0 auto;width:100%;height:100%;box-sizing:border-box;font:sans;}
 img, object, embed, canvas {max-width:100%;height:auto;}
 body {background:#FAFAFA;overflow: hidden;}
 
@@ -16,6 +16,7 @@ body {background:#FAFAFA;overflow: hidden;}
 .statusbar {padding:.5rem;text-align:center;font-size:2.5rem;background:lightgray;}
 .statusbar div {flex:1;}
 .svg-icon {path,polygon,rect{fill: #4691f6;}}
+#start {padding-top:.25rem;background:grey;color:white;}
 
 div.smoothie-chart-tooltip {
   background: #444;
@@ -53,7 +54,7 @@ div.smoothie-chart-tooltip {
 </div>
 <div class="flr statusbar">
  <div class="fls" id="sl">~bpm</div>
- <div class="fle" id="sr">0s</div>
+ <div class="fle" id="sr">SDNN: ~</div>
 </div>
 <canvas id="chart" style="width:100%;"></canvas>
 <script>
@@ -68,16 +69,23 @@ var _chart;
 _ts = new TimeSeries();
 _pause = false;
 
+function log(s) {
+  console.log(s);
+}
+
+function sdnn(rrlist) {
+  let n = rrlist.length;
+  let mean = rrlist.reduce((a,b) => a+b)/n;
+  return Math.sqrt(rrlist.map(x => Math.pow(x-mean,2)).reduce((a,b) => a+b)/n);  
+}
+
 function onHeartRateData(evt) {
   let dv = evt.target.value;
   let rr = dv.getUint16(5);
   _rrlist.push(rr);
-  _el.sl.innerText = dv.getUint8(1) + ' bpm';
+  _el.sl.innerText = dv.getUint8(1) + ' bpm'
+  _el.sr.innerText = 'SDNN: ' + sdnn(_rrlist).toFixed(2);
   _ts.append(new Date().getTime(), rr);
-}
-
-function log(s) {
-  console.log(s);
 }
 
 function onStartClick(evt) {
@@ -112,7 +120,8 @@ function onStartClick(evt) {
       .then(function(){
         _pause = true;
         clearInterval(_timer);
-       _el.start.innerText = 'Start';
+        _el.start.style.background = 'blue';
+        _el.start.innerText = 'Start';
         _timer = null;
         _chart.stop();
         _hrmCharacterstic.removeEventListener('characteristicvaluechanged', onHeartRateData);
@@ -125,11 +134,12 @@ function onStartClick(evt) {
         _rrlist = [];
         _pause = false;
         _chart.start();
-        _el.start.innerText = 'Stop'
+        _el.start.style.background = 'red';
+        _el.start.innerText = 'Stop (0s)'
         _stime = new Date();
         _timer = setInterval(function() {
           let delta = Math.round(((new Date()) - _stime)/1000);
-          _el.sr.innerText = delta+'s';
+          _el.start.innerText = 'Stop (' + delta+'s)';
         }, 1000)
         log('Started...');
         _hrmCharacterstic.addEventListener('characteristicvaluechanged', onHeartRateData);
