@@ -1,0 +1,74 @@
+<!doctype html><html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+html {overflow-y:scroll;box-sizing:border-box;}
+img, object, embed {max-width:100%;height:auto;}
+body {margin:0 auto;max-width:50rem;line-height:1.6;background:#FAFAFA;}
+@media(max-width:50rem) {body {padding:1rem;}}
+</style>
+<title>sd1,sd2 calculator</title>
+</head>
+<body>
+<p>Load a text file with rr values (one per line)</p>
+<input type="file" id="file" name="file" />
+<pre id="output"></pre>
+
+<script>
+
+
+function sd(a) {
+  let n = a.length;
+  let mean = a.reduce((a,b) => a+b)/n;
+  return Math.sqrt(a.map(x => Math.pow(x-mean,2)).reduce((a,b) => a+b)/n);  
+}
+
+function adiff(a) {
+  let n = a.length;
+  if (1 == n) { return a; }
+  let r = [];
+  for (i=1;i<n;i++) { r.push((a[i]-a[i-1])) }
+  return r;
+}
+
+function parsef(f) {
+  let s = escape(f.name) + ' (' + (f.type || 'n/a') + ') - ' +
+    f.size + ' bytes, last modified: ' +
+    (f.lastModifiedDate ? f.lastModifiedDate.toLocaleDateString() : 'n/a') + '\n';
+
+  let fr = new FileReader();
+  console.log(s);
+  fr.onload = function(evt){
+    let flines = evt.target.result.split('\n');
+    let rrlist = flines.map(function(ln){return parseInt(ln.trim());})
+    let ttime = 0;
+    rrlist.map(function(ms){ttime+=ms;});
+    s += '\n' + rrlist.length + ' records loaded (duration ' + Math.round(ttime/1000) + 's).';
+
+    let sdsd = sd(adiff(rrlist));
+    let sdrr = sd(rrlist);
+    let sd1 = (1 / Math.sqrt(2)) * sdsd
+    let sd2 = Math.sqrt((2 * sdrr ** 2) - (0.5 * sdsd ** 2))
+    s += '\n' + 'SD1=' + Math.round(sd1) + '\nSD2=' + Math.round(sd2);
+
+    document.getElementById('output').innerText = s;
+  };
+  fr.onerror = function(err) {
+    console.log('onerror', err);
+  }
+  fr.readAsText(f);
+
+}
+
+function main() {
+  document.getElementById('file').addEventListener('change', function(evt) {
+    parsef(evt.target.files[0]);
+  }, false);
+}
+
+window.addEventListener('load', function(){setTimeout(main,0)}, false)
+</script>
+</body>
+</html>
