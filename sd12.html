@@ -49,9 +49,10 @@ function parsef(f) {
 
     let sdsd = sd(adiff(rrlist));
     let sdrr = sd(rrlist);
-    let sd1 = (1 / Math.sqrt(2)) * sdsd
-    let sd2 = Math.sqrt((2 * sdrr ** 2) - (0.5 * sdsd ** 2))
-    s += '\n' + 'SD1=' + Math.round(sd1) + '\nSD2=' + Math.round(sd2);
+    let sd1 = (1 / Math.sqrt(2)) * sdsd;
+    let sd1b = Math.sqrt(sdsd ** 2 * 0.5);
+    let sd2 = Math.sqrt((2 * sdrr ** 2) - (0.5 * sdsd ** 2));
+    s += '\n' + 'SD1=' + Math.round(sd1) + '/' + Math.round(sd1b) + '\nSD2=' + Math.round(sd2);
 
     document.getElementById('output').innerText = s;
   };
