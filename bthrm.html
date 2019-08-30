@@ -281,12 +281,14 @@ function onHRM(hrm) {
       _el.status.innerHTML = '&#x2764; skipping ' + _rrlist.length + '...';
       if (_rrlist.length > 4) {
         _rrlist = []; //skip first few samples - SD1/2 gets wacko otherwise
+        _ts[0].clear(); //not-sure why the following does not work ?!
+        for (i=0;i<_ts.length;i++) {_ts[_tsindex].clear();}
         _stime = new Date();
         setEnable();
         _pause = false;
-        _chart.start();
+        setTimeout(function(){_chart.start();},20);
         _pause2 = false;
-        _chart2.start();
+        setTimeout(function(){_chart2.start();},20);
       }
     } else {
       let sdsd = sd(adiff(_rrlist));
@@ -344,8 +346,6 @@ function onStatusClick(evt) {
       });
   } else if (heartRateSensor.status == 'ready') {
     _stime = null;
-    _rrlist = [];
-    for (i=0;i<_ts.length;i++) {_ts[_tsindex].clear();}
     _el.status.innerHTML = '&#x2764; starting...';
     setEnable(false);
     heartRateSensor.start_heart_rate_measurement().then(onHRM);
