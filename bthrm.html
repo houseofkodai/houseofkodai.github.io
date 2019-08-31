@@ -27,7 +27,7 @@ div.smoothie-chart-tooltip {
 <div class="topbar" id="status">&#x2764; START</div>
 <canvas id="chart" class="disabled"></canvas>
 <div class="topbar disabled" id="statusBar2">
- <span id="save">&#x1f4be;</span>
+ <span id="save">&#x1f4be; SAVE</span>
  <span id="status2">bpm/SD1/SD2/SDRR</span>
  <span id="publish"><!--&#x2117;--></span>
 </div>
@@ -216,6 +216,7 @@ _el = {};
 _rrlist = [];
 _stime = null;
 _ptime = null;
+_ttime = 0;
 _chart = null;
 _chart2 = null;
 _ss = [{ strokeStyle: 'rgba(0, 255, 0, 1)', fillStyle: 'rgba(0, 255, 0, 0.2)', lineWidth: 4 },
@@ -278,8 +279,10 @@ function onHRM(hrm) {
     _rrlist.push.apply(_rrlist,v.rrIntervals);
     if (!_stime) {
       _el.status.innerHTML = '&#x2764; skipping ' + _rrlist.length + '...';
+      //skip first few samples - SD1/2 gets wacko otherwise
       if (_rrlist.length > 4) {
-        _rrlist = []; //skip first few samples - SD1/2 gets wacko otherwise
+        _ttime = 0;
+        _rrlist.length = 0; //note: array.length is needed setting array to [] does not clear.
         _ts[0].clear(); //not-sure why the following does not work ?!
         for (i=0;i<_ts.length;i++) {_ts[_tsindex].clear();}
         _stime = new Date();
@@ -300,6 +303,7 @@ function onHRM(hrm) {
       if (!_ptime) {_ptime = _stime;}
       let sample_time = _ptime.getTime();
       for (i=0;i<v.rrIntervals.length;i++) {
+        _ttime += v.rrIntervals[i];
         sample_time += v.rrIntervals[i];
         _ts[0].append(sample_time, v.rrIntervals[i]);
       }
@@ -322,7 +326,8 @@ function onHRM(hrm) {
           case 4:
             _el.status2.innerText = 'SDRR ' + sdrr;
             break;
-        }
+      }
+      _el.save.innerHTML = '&#x1f4be; SAVE (' + _rrlist.length + '/' + Math.round(_ttime/1000) + ')';
     }
   });
 }
@@ -346,7 +351,7 @@ function onStatusClick(evt) {
     _rrlist = [];
     setEnable(false);
     _el.status.innerHTML = '&#x2764; starting...';
-    heartRateSensor.start_heart_rate_measurement().then(onHRM);
+    heartRateSensor.start_heart_rate_measurement(); /* attaching every-time calls onHRM multiple times with same data */
   } else {
     heartRateSensor.stop_heart_rate_measurement();
     _pause = true;
