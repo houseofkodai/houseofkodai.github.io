@@ -215,6 +215,7 @@ function adiff(a) {
 _el = {};
 _rrlist = [];
 _stime = null;
+_ptime = null;
 _chart = null;
 _chart2 = null;
 _ss = [{ strokeStyle: 'rgba(0, 255, 0, 1)', fillStyle: 'rgba(0, 255, 0, 0.2)', lineWidth: 4 },
@@ -229,11 +230,6 @@ _pause2 = false;
 
 function log(s) {
   console.log(s);
-  /*if (_el.log.innerText.length > 0) {
-    _el.log.innerText += '\n' + s;
-  } else {
-    _el.log.innerText = s;
-  }*/
 }
 
 function onSaveClick(evt) {
@@ -298,18 +294,17 @@ function onHRM(hrm) {
       sd1 = Math.round(sd1);
       let sd2 = Math.sqrt((2 * sdrr ** 2) - (0.5 * sdsd ** 2));
       sd2 = Math.round(sd2);
-      let now = (new Date()).getTime();
+      if (!_ptime) {_ptime = _stime;}
+      let sample_time = _ptime.getTime();
       for (i=0;i<v.rrIntervals.length;i++) {
-        if (i > 0) {
-          _ts[0].append(now+v.rrIntervals[i-1], v.rrIntervals[i]);
-        } else {
-          _ts[0].append(now, v.rrIntervals[i]);          
-        }
+        sample_time += v.rrIntervals[i];
+        _ts[0].append(sample_time, v.rrIntervals[i]);
       }
-      _ts[1].append(now, v.heartRate);
-      _ts[2].append(now, sdrr);
-      _ts[3].append(now, Math.round(sd1));
-      _ts[4].append(now, Math.round(sd2));
+      _ts[1].append(sample_time, v.heartRate);
+      _ts[2].append(sample_time, sdrr);
+      _ts[3].append(sample_time, Math.round(sd1));
+      _ts[4].append(sample_time, Math.round(sd2));
+      _ptime = new Date(); /* store for next time */
       _el.status.innerHTML = hhmmss(_stime) + ' &#x2764; ' + _rrlist[_rrlist.length-1];
       switch (_tsindex) {
           case 1:
@@ -346,8 +341,9 @@ function onStatusClick(evt) {
       });
   } else if (heartRateSensor.status == 'ready') {
     _stime = null;
-    _el.status.innerHTML = '&#x2764; starting...';
+    _rrlist = [];
     setEnable(false);
+    _el.status.innerHTML = '&#x2764; starting...';
     heartRateSensor.start_heart_rate_measurement().then(onHRM);
   } else {
     heartRateSensor.stop_heart_rate_measurement();
