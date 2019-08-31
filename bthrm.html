@@ -234,9 +234,12 @@ function log(s) {
 
 function onSaveClick(evt) {
   if (_rrlist.length < 1) { return; }
+  let ttime = 0;_rrlist.map(function(ms){ttime+=ms;});
+  let fname = (new Date()).toISOString() + '-' + _rrlist.length + '-' + ttime '.txt';
+
   let a = document.createElement('a');
   a.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(_rrlist.join('\n')));
-  a.setAttribute('download', ((new Date()).toISOString()+'.txt'));
+  a.setAttribute('download', fname);
   a.style.display = 'none';
   document.body.appendChild(a);
   a.click();
@@ -321,7 +324,6 @@ function onHRM(hrm) {
             break;
         }
     }
-    //let ttime = 0;_rrlist.map(function(ms){ttime+=ms;});
   });
 }
 
