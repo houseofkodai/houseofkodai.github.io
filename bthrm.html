@@ -70,10 +70,30 @@ function adiff(a) {
   for (i=1;i<n;i++) { r.push((a[i]-a[i-1])) }
   return r;
 }
+
+function parseQueryString(variable) {
+  let d = {};
+  window.location.search.substring(1).split('&').forEach(i=>{
+    let kv = decodeURIComponent(i).split('=');
+    if (kv.length > 1) {
+      if (kv.length == 2) {
+        d[kv[0]] = kv[1];
+      } else {
+        d[kv.shift()] = kv.join('=');
+      }
+    } else {
+      d[i] = null;
+    }
+  });
+  return d;
+}
+
 </script>
 <script>
 _heartRateSensor = new HeartRateSensor();
 _el = {};
+_qs = parseQueryString();
+_mpp = parseInt(_qs.mpp) || 250;
 _rrlist = [];
 _stime = null;
 _ptime = null;
@@ -241,7 +261,7 @@ function main() {
     _pause = !_pause;
     if (_pause) {_chart.stop();} else {_chart.start();}
     });
-  _chart = new SmoothieChart({labels:{fontSize:18},millisPerPixel:500,tooltip:true,responsive: true});
+  _chart = new SmoothieChart({labels:{fontSize:18},millisPerPixel:_mpp,tooltip:true,responsive: true});
   _chart.addTimeSeries(_ts[0], _ss[0]);
   _chart.addTimeSeries(_ts[1], _ss[1]);
   _chart.streamTo(_el.chart, 1000);
@@ -252,7 +272,7 @@ function main() {
     _pause2 = !_pause2;
     if (_pause2) {_chart2.stop();} else {_chart2.start();}
     });
-  _chart2 = new SmoothieChart({labels:{fontSize:18},millisPerPixel:500,tooltip:true,responsive: true});
+  _chart2 = new SmoothieChart({labels:{fontSize:18},millisPerPixel:_mpp,tooltip:true,responsive: true});
   _chart2.addTimeSeries(_ts[_tsindex], _ss[_tsindex]);
   _chart2.streamTo(_el.chart2, 1000);
   setTimeout(function(){_chart2.stop();},20);
