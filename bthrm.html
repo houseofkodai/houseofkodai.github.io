@@ -209,13 +209,13 @@ function onHRM(event) {
           _el.status2.innerText = v.heartRate + ' bpm';
           break;
         case 2:
-          _el.status2.innerText = 'SD1 ' + sd1;
+          _el.status2.innerText = 'SD1: ' + sd1;
           break;
         case 3:
-          _el.status2.innerText = 'SD2 ' + sd2;
+          _el.status2.innerText = 'SD2: ' + sd2;
           break;
         case 4:
-          _el.status2.innerText = 'SD1/SD2 ' + sd12;
+          _el.status2.innerText = '(SD1/SD2): ' + sd12;
           break;
     }
     _el.save.innerHTML = '&#x1f4be; SAVE (' + _rrlist.length + '/' + Math.round(_ttime/1000) + ')';
