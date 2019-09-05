@@ -171,7 +171,7 @@ function onHRM(event) {
 
       _stime = new Date();
       _ts[0].append(_stime.getTime(),_rrmin); //setMin
-      _ts[0].append(_stime.getTime(),_rrmax); //setMax
+      _ts[0].append(_stime.getTime()+500,_rrmax); //setMax
 
       for (i=1;i<_ts.length;i++) {_ts[_tsindex].clear();}
       setEnable();
