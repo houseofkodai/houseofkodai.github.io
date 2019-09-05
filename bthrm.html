@@ -29,7 +29,7 @@ div.smoothie-chart-tooltip {
 <canvas id="chart" class="disabled"></canvas>
 <div class="topbar disabled" id="statusBar2">
  <span id="save">&#x1f4be; SAVE</span>
- <span id="status2">SD1/SD2/SDRR</span>
+ <span id="status2">bpm/SD1/SD2</span>
  <!--span id="publish"><&#x2117;</span-->
 </div>
 <canvas id="chart2" class="disabled"></canvas>
@@ -106,9 +106,12 @@ _ss = [{ strokeStyle: 'rgba(0, 255, 0, 1)', fillStyle: 'rgba(0, 255, 0, 0.2)', l
        { strokeStyle: 'rgba(255, 0, 0, 1)', fillStyle: 'rgba(255, 0, 0, 0.2)', lineWidth: 4 },
        { strokeStyle: 'rgba(255, 255, 255, 1)', fillStyle: 'rgba(255, 255, 255, 0.2)', lineWidth: 4 }];
 _ts = [new TimeSeries(),new TimeSeries(),new TimeSeries(),new TimeSeries(),new TimeSeries()];
-_tsindex = 2;
+_tsindex = parseInt(_qs.gidx) || 1;
+if ((_tsindex < 0) || (_tsindex >= _ts.length)) {_tsindex = 1};
 _pause = false;
 _pause2 = false;
+_rrmin = parseInt(_qs.rrmin) || 500;
+_rrmax = parseInt(_qs.rrmax) || 1200;
 
 function log(s) {
   console.log(s);
@@ -132,7 +135,7 @@ function onStatus2Click(evt) {
   _chart2.stop();
   _chart2.removeTimeSeries(_ts[_tsindex]);
   _tsindex++;
-  if (_tsindex == _ts.length) { _tsindex = 2; }
+  if (_tsindex == _ts.length) { _tsindex = 1; }
   _chart2.addTimeSeries(_ts[_tsindex], _ss[_tsindex]);
   _chart2.start();
 }
@@ -164,11 +167,11 @@ function onHRM(event) {
     if (_rrlist.length > 4) {
       _ttime = 0;
       _rrlist.length = 0; //note: array.length is needed setting array to [] does not clear.
-      _ts[0].clear();_ts[1].clear(); //not-sure why the following does not work ?!
+      _ts[0].clear();//not-sure why the following does not work ?!
 
       _stime = new Date();
-      _ts[0].append(_stime.getTime(),1200); //setMax
-      _ts[1].append(_stime.getTime(),0); //setMin
+      _ts[0].append(_stime.getTime(),_rrmin); //setMin
+      _ts[0].append(_stime.getTime(),_rrmax); //setMax
 
       for (i=1;i<_ts.length;i++) {_ts[_tsindex].clear();}
       setEnable();
@@ -185,7 +188,6 @@ function onHRM(event) {
       sample_time += v.rrIntervals[i];
       _ts[0].append(sample_time, v.rrIntervals[i]);
     }
-    _ts[1].append(sample_time, v.heartRate);
     _ptime = new Date(); /* store for next time */
     _el.status.innerHTML = hhmmss(_stime) + ' &#x2764; ' + _rrlist[_rrlist.length-1] + '/' + v.heartRate;
 
@@ -197,10 +199,15 @@ function onHRM(event) {
     let sd2 = Math.sqrt((2 * sdrr ** 2) - (0.5 * sdsd ** 2));
     sd2 = Math.round(sd2);
 
+    _ts[1].append(sample_time, v.heartRate);
     _ts[2].append(sample_time, sd1);
     _ts[3].append(sample_time, sd2);
-    _ts[4].append(sample_time, sdrr);
+    let sd12 = Math.round(100*(sd1/sd2));
+    _ts[4].append(sample_time, sd12);
     switch (_tsindex) {
+        case 1:
+          _el.status2.innerText = v.heartRate + ' bpm';
+          break;
         case 2:
           _el.status2.innerText = 'SD1 ' + sd1;
           break;
@@ -208,7 +215,7 @@ function onHRM(event) {
           _el.status2.innerText = 'SD2 ' + sd2;
           break;
         case 4:
-          _el.status2.innerText = 'SDRR ' + sdrr;
+          _el.status2.innerText = 'SD1/SD2 ' + sd12;
           break;
     }
     _el.save.innerHTML = '&#x1f4be; SAVE (' + _rrlist.length + '/' + Math.round(_ttime/1000) + ')';
@@ -263,7 +270,6 @@ function main() {
     });
   _chart = new SmoothieChart({labels:{fontSize:18},millisPerPixel:_mpp,tooltip:true,responsive: true});
   _chart.addTimeSeries(_ts[0], _ss[0]);
-  _chart.addTimeSeries(_ts[1], _ss[1]);
   _chart.streamTo(_el.chart, 1000);
   setTimeout(function(){_chart.stop();},20);
 
