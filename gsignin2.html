@@ -118,7 +118,7 @@ class GAuth {
       if (err.details == 'Cookies are not enabled in current environment.') {
         this.status.innerText = 'You have disabled third-party data.\nCreate an exception for https://accounts.google.com\nby adding accounts.google.com to the allowed domains.\nIn Chrome, this is done in chrome://settings/content/cookies';
       } else {
-        this.status.innerText = err.details;
+        this.status.innerText = err.details.substr(0,40);
       }
     } else if ('popup_blocked_by_browser' == err.error) {
       /* try redirect signIn */
