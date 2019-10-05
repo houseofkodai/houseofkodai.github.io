@@ -1,0 +1,141 @@
+<!doctype html><html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+html {height: 100%;box-sizing:border-box;}
+img, object, embed {max-width:100%;height:auto;}
+body {bottom:0;height:100%;left:0;margin:0;overflow:hidden;position:absolute;top:0;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background-color:#7dbfff;font-family:'Roboto',sans-serif;}
+</style>
+<title>GAuth: redom google sign-in</title>
+<script src="https://redom.js.org/redom.min.js"></script>
+</head>
+<body>
+<script>
+const { el, svg, mount } = redom;
+
+function loadScript(src,onload){let _=document.createElement('script');_.src=src;_.onload=onload;document.head.appendChild(_);}
+
+class GAuth {
+  constructor(gClientConfig) {
+    this.gClientConfig = gClientConfig;
+    const glogo = svg(
+      'svg', {version:'1.1', xmlns: 'http://www.w3.org/2000/svg', width:'18px', height:'18px', viewBox:'0 0 48 48'}, svg('g', 
+        svg('path', {fill:'#EA4335', d:'M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z'}),
+        svg('path', {fill:'#4285F4', d:'M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z'}),
+        svg('path', {fill:'#FBBC05', d:'M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z'}),
+        svg('path', {fill:'#34A853', d:'M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z'}),
+        svg('path', {fill:'none', d:'M0 0h48v48H0z'}),
+      ),
+    );
+    this.status = el('pre#status', {style:{background:'red', margin:'0 auto', 'font-size':'1.4rem', color:'white', padding:'.25rem', 'text-align':'center'}}, 'loading...');
+    this.signin = el('#g-signin2', {style:{display:'none', cursor:'pointer', width:'240px', height:'50px', 'background-color':'#4285f4', 'color':'#fff'}},
+      el('div', {style: {float:'left', padding:'14px', 'background-color':'#fff'}}, glogo),
+      el('span', {style: {'font-size':'16px', 'line-height':'48px', 'font-weight':'500', 'letter-spacing':'.21px', 'margin-left':'6px'}}, 
+        el('span', 'Sign in with Google')
+      ),
+    );
+    this.signout = el('#signout', {style:{display:'none','background-color':'blue', color:'white', cursor:'pointer', padding:'.25rem'}}, 'Sign out');
+    this.name = el('h3#hame', 'Karthik Ayyar');
+    this.email = el('p#email', 'karthik@houseofkodai.in');
+    this.photo = el('img#photo', {style:{'border-radius':'50%'}, src:'profile.jpg'});
+    this.profile = el('#profile', {style:{display:'none'}}, this.photo, this.name, this.email);
+    this.el = el('div#googleUser', {style:{'text-align':'center'}}, [this.status, this.signin, this.profile, this.signout]);
+    this.signinClick = this.signinClick.bind(this);
+    this.signin.addEventListener('click', this.signinClick, false);
+    this.signoutClick = this.signoutClick.bind(this);
+    this.signout.addEventListener('click', this.signoutClick, false);
+    this.gOnLoad = this.gOnLoad.bind(this);
+    this.gSigninChanged = this.gSigninChanged.bind(this);
+    this.gUserChanged = this.gUserChanged.bind(this);
+    this.gOnError = this.gOnError.bind(this);
+  }
+  onmount() {
+    console.log('GAuth.onmount');
+    if (!window.gapi) {
+      loadScript('https://apis.google.com/js/api:client.js', this.gOnLoad);
+      return;
+    } else {
+      this.gOnLoad();
+    }
+  }
+  signinClick() {
+    console.log('GAuth.signinClick');
+    this.auth2.signIn({prompt:'select_account'}).then(null, this.gOnError);
+  }
+  signoutClick() {
+    console.log('GAuth.signoutClick');
+    this.auth2.signOut();
+    this.gUser = null;
+  }
+  gOnLoad(res) {
+    console.log('GAuth.gOnLoad');
+    let _this = this;
+    gapi.load('auth2', function() {
+      console.log('GAuth.gOnLoad-auth2');
+      _this.status.innerText = '';
+      _this.status.style.display = 'none';
+      _this.signin.style.display = 'block';
+      _this.auth2 = gapi.auth2.init(_this.gClientConfig);
+      _this.auth2.isSignedIn.listen(_this.gSigninChanged);
+      _this.auth2.currentUser.listen(_this.gUserChanged);
+      if (_this.auth2.isSignedIn.get() == true) {
+        _this.auth2.signIn();
+      } else {
+        _this.auth2.then(null,_this.gOnError);
+      };
+    });
+  }
+  gSigninChanged(val) {
+    console.log('GAuth.gSigninChanged', val);
+    if (val) {
+      let gUser = this.auth2.currentUser.get();
+      let bp = gUser.getBasicProfile();
+      this.name.innerText = bp.ig;
+      this.email.innerText = bp.U3;
+      this.photo.src = bp.Paa;
+      this.signin.style.display = 'none';
+      this.signout.style.display = 'block';
+      this.profile.style.display = 'block';      
+    } else {
+      this.gUser = null;
+      this.signin.style.display = 'block';
+      this.signout.style.display = 'none';
+      this.profile.style.display = 'none';
+    }
+  }
+  gUserChanged(user) {
+    console.log('GAuth.gUserChanged', user);
+    this.gUser = user;
+  }
+  gOnError(err) {
+    console.log('GAuth.gOnError', err);
+    this.status.style.display = 'block';
+    this.signin.style.display = 'none';
+    this.signout.style.display = 'none';
+    this.profile.style.display = 'none';
+    if ('idpiframe_initialization_failed' == err.error) {
+      this.status.innerText = 'You have disabled third-party data.\nCreate an exception for https://accounts.google.com\nby adding accounts.google.com to the allowed domains.\nIn Chrome, this is done in chrome://settings/content/cookies';
+    } else if ('popup_blocked_by_browser' == err.error) {
+      /* try redirect signIn */
+      this.auth2.signIn({prompt:'select_account', ux_mode:'redirect'}).then(null, this.gOnError);
+    } else if ('popup_closed_by_user' == err.error) {
+      /* show the signin button along-with status, so user can retry */
+      this.status.innerText = err.error;
+      this.signin.style.display = 'block';
+    } else {
+      this.status.innerText = err.error;
+    }
+  }
+}
+
+function main() {
+  console.log('main')
+  gAuth = new GAuth({client_id:'1066931268236-4gv7tlnq2e0dv0c1bftr12bne0a6mn20.apps.googleusercontent.com'});
+  redom.mount(document.body, gAuth);
+}
+
+window.addEventListener('load', function(){setTimeout(main,0)}, false)
+</script>
+</body>
+</html>
