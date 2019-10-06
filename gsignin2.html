@@ -36,9 +36,9 @@ class GAuth {
       ),
     );
     this.signout = el('#signout', {style:{display:'none','background-color':'blue', color:'white', cursor:'pointer', padding:'.25rem'}}, 'Sign out');
-    this.name = el('h3#hame', 'Karthik Ayyar');
-    this.email = el('p#email', 'karthik@houseofkodai.in');
-    this.photo = el('img#photo', {style:{'border-radius':'50%'}, src:'profile.jpg'});
+    this.name = el('h3#hame');
+    this.email = el('p#email');
+    this.photo = el('img#photo', {style:{'border-radius':'50%'}});
     this.profile = el('#profile', {style:{display:'none'}}, this.photo, this.name, this.email);
     this.el = el('div#googleUser', {style:{'text-align':'center'}}, [this.status, this.signin, this.profile, this.signout]);
     this.signinClick = this.signinClick.bind(this);
