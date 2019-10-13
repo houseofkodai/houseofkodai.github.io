@@ -1,24 +1,25 @@
 <!doctype html><html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="mobile-web-app-capable" content="yes">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-html {overflow-y:scroll;box-sizing:border-box;}
+html {height: 100%;box-sizing:border-box;}
 img, object, embed {max-width:100%;height:auto;}
-body {margin:0 auto;max-width:50rem;line-height:1.6;background:#FAFAFA;}
-@media(max-width:50rem) {body {padding:1rem;}}
+body {bottom:0;height:100%;left:0;margin:0;overflow:hidden;position:absolute;top:0;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background-color:#7dbfff;}
+
+.content {margin:0 auto;min-height:100%;min-width:50rem;max-width:50rem;line-height:1.6;background:#FAFAFA;overflow:auto;}
+@media(max-width:50rem) {.content {padding:1rem;}}
 </style>
-<title>sd1,sd2 calculator</title>
+<title>sd12</title>
 </head>
 <body>
-<p>Load a text file with rr values (one per line)</p>
-<input type="file" id="file" name="file" />
+
+<div class="content">
+<input type='file' accept='text/plain' onchange='openFile(event)'><br>
 <pre id="output"></pre>
+</div>
 
 <script>
-
-
 function sd(a) {
   let n = a.length;
   let mean = a.reduce((a,b) => a+b)/n;
@@ -33,43 +34,34 @@ function adiff(a) {
   return r;
 }
 
-function parsef(f) {
-  let s = escape(f.name) + ' (' + (f.type || 'n/a') + ') - ' +
-    f.size + ' bytes, last modified: ' +
-    (f.lastModifiedDate ? f.lastModifiedDate.toLocaleDateString() : 'n/a') + '\n';
+function sd12(rrlist) {
+  let sdsd = sd(adiff(rrlist));
+  let sdrr = sd(rrlist);
+  sdrr = Math.round(sdrr);
+  let sd1 = (1 / Math.sqrt(2)) * sdsd;
+  sd1 = Math.round(sd1);
+  let sd2 = Math.sqrt((2 * sdrr ** 2) - (0.5 * sdsd ** 2));
+  sd2 = Math.round(sd2);
+  return [sd1, sd2]
+}
 
-  let fr = new FileReader();
-  console.log(s);
-  fr.onload = function(evt){
-    let flines = evt.target.result.split('\n');
-    let rrlist = flines.map(function(ln){return parseInt(ln.trim());})
+function openFile(event) {
+  let fReader = new FileReader();
+  fReader.onload = function() {
+    let rrlist = fReader.result.split('\n').map(function(i){
+       return parseInt(i,10)}
+    );
     let ttime = 0;
     rrlist.map(function(ms){ttime+=ms;});
-    s += '\n' + rrlist.length + ' records loaded (duration ' + Math.round(ttime/1000) + 's).';
-
-    let sdsd = sd(adiff(rrlist));
-    let sdrr = sd(rrlist);
-    let sd1 = (1 / Math.sqrt(2)) * sdsd;
-    let sd1b = Math.sqrt(sdsd ** 2 * 0.5);
-    let sd2 = Math.sqrt((2 * sdrr ** 2) - (0.5 * sdsd ** 2));
-    s += '\n' + 'SD1=' + Math.round(sd1) + '/' + Math.round(sd1b) + '\nSD2=' + Math.round(sd2);
-
-    document.getElementById('output').innerText = s;
+    let output = [rrlist.length + ' records loaded (duration ' + Math.round(ttime/1000) + 's).\n# rr sd1 sd2\n1 ' + rrlist[0] + ' 0 0'];
+    for (i=1;i<rrlist.length;i++) {
+      let [sd1, sd2] = sd12(rrlist.slice(0,i));
+      output.push([i+1, rrlist[i], sd1, sd2].join(' '))
+    }
+    document.getElementById('output').innerText = output.join('\n');
   };
-  fr.onerror = function(err) {
-    console.log('onerror', err);
-  }
-  fr.readAsText(f);
-
-}
-
-function main() {
-  document.getElementById('file').addEventListener('change', function(evt) {
-    parsef(evt.target.files[0]);
-  }, false);
-}
-
-window.addEventListener('load', function(){setTimeout(main,0)}, false)
+  fReader.readAsText(event.target.files[0]);
+};
 </script>
 </body>
 </html>
