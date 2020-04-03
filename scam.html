@@ -1,0 +1,147 @@
+<!doctype html><html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scam: samar's cam</title>
+<link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
+<script src="https://redom.js.org/redom.min.js"></script>
+</head>
+<body>
+
+<script>
+const { el, mount} = redom
+
+class VideoProc {
+  constructor() {
+    this.oRect = {'x':0,'y':0,'w':320,'h':240};
+    this.elStatus = el('.bg-white.fixed.pa1', {'style':{'left':'50%','transform':'translateX(-50%)'}}, 'status');
+    this.elOffScreenCanvas = document.createElement('canvas');
+    this.elOverlay = el('canvas.absolute', {'draggable':true});
+    //note: if w-100 is set then overlay w/h needs to be adjusted by appropriate ratio elWidth/videoWidth elHeight/videoHeight
+    this.elVideo = el('video');
+    this.el = el('.w-100', [this.elStatus, this.elVideo, this.elOverlay]);
+
+    this.el.addEventListener('dblclick',this.overlayDblClick,false);
+    this.elOverlay.addEventListener('dragstart',this.dragStart,false);
+    this.elVideo.addEventListener('dragover',this.dragOver,false);
+    this.elVideo.addEventListener('drop',this.dragDrop,false);
+    //this.elVideo.addEventListener('loadedmetadata',this.videoOnLoadedMetaData,false);
+
+    this.frameCount = 0;
+    this.startTime = 0;
+    this.fps = 0;
+  }
+  onmount() {
+    this.overlayStartX = this.el.offsetLeft;
+    this.overlayStartY = this.el.offsetTop;
+
+    this.elOverlay.style.left = this.overlayStartX;
+    this.elOverlay.style.top = this.overlayStartY;
+    this.elOverlay.width = this.oRect.w;
+    this.elOverlay.height = this.oRect.h;
+    this.elOffScreenCanvas.width = this.oRect.w;
+    this.elOffScreenCanvas.height = this.oRect.h;
+
+    navigator.mediaDevices.getUserMedia({audio:false, video:true})
+      .then(this.onVideoOpen).catch(this.onVideoError);
+  }
+  statusUpdate() {
+    this.elStatus.innerText = this.fps + ' ' + this.oRect.x + ',' + this.oRect.y + ' ' +
+      this.oRect.w + 'x' + this.oRect.h;
+  }
+  overlayDblClick = (evt) => {
+    if (this.elStatus.style.display != 'none') {
+      this.elStatus.style.display = 'none';
+      //cancelAnimationFrame(this.rafID);
+    } else {
+      this.elStatus.style.display = 'block';
+	  //this.rafID = requestAnimationFrame(this.onFrame.bind(this));
+    }
+  }
+  onVideoOpen = (stream) => {
+    this.frameCount = 0;
+    this.startTime = new Date().getTime();
+    this.elVideo.srcObject = stream;
+    this.elVideo.play();
+    this.rafID = requestAnimationFrame(this.onFrame.bind(this));
+    this.statusUpdate();
+  }
+  onVideoError = (err) => {
+    this.elStatus.innerText = '-ERR getUserMedia: ' + err.name + err.message;
+    console.log('onVideoError', err);
+  }
+  videoOnLoadedMetaData = (evt) => {
+    console.log('videoOnLoadedMetaData', evt, this.elVideo.videoWidth, this.elVideo.videoHeight);
+  }
+  onFrame(timestamp) {
+    if (this.elVideo.readyState === this.elVideo.HAVE_ENOUGH_DATA) {
+      const ctxOffScreen = this.elOffScreenCanvas.getContext('2d');
+      const ctxOverlay = this.elOverlay.getContext('2d');
+
+      // Draw selected area of video to OffScreenCanvas
+      ctxOffScreen.drawImage(this.elVideo, this.oRect.x, this.oRect.y, this.oRect.w, this.oRect.h, 0, 0, this.oRect.w, this.oRect.h);
+
+      // get the imageData from OffScreenCanvas
+	  let rgba = ctxOffScreen.getImageData(0, 0, 640, 480);
+
+      // grayscale magic-numbers change as reqd. 
+      //from http://www.poynton.com/notes/colour_and_gamma/ColorFAQ.html
+      //const rgb2gs = [0.2125, 0.7154, 0.0721];
+      const rgb2gs = [0.299, 0.587, 0.114];
+      for (let i = 0; i < rgba.data.length; i += 4) {
+      	let mono = (rgba.data[i] * rgb2gs[0]) + (rgba.data[i+1] * rgb2gs[1]) + (rgba.data[i+1] * rgb2gs[2]);
+        rgba.data[i] = mono;
+        rgba.data[i+1] = mono;
+        rgba.data[i+2] = mono;
+      }
+
+      // draw modified Image on overlayCanvas
+      ctxOverlay.putImageData(rgba, 0, 0);
+
+      this.frameCount += 1;
+      let elapsed = (new Date().getTime()) - this.startTime;
+      this.fps = Math.round(this.frameCount*1000/elapsed);
+      this.statusUpdate();
+      //reset counters - so fps is for last 5 seconds
+      if (elapsed > 5000) {
+        this.frameCount = 0;
+        this.startTime = new Date().getTime();
+      }
+    }
+	this.rafID = requestAnimationFrame(this.onFrame.bind(this));
+  }
+  dragStart = (evt) => {
+    this.overlayStartX = evt.clientX;
+    this.overlayStartY = evt.clientY;
+  }
+  dragOver = (evt) => {
+    event.preventDefault();
+    return false;
+  }
+  dragDrop = (evt) => {
+    let vrect = this.elVideo.getBoundingClientRect();
+    let orect = this.elOverlay.getBoundingClientRect();
+    let x = this.elOverlay.offsetLeft + (evt.clientX - this.overlayStartX);
+    if (x <= this.elVideo.offsetLeft) { x = this.elVideo.offsetLeft; }
+    else if ((x+orect.width) > (vrect.x+vrect.width)) { x = vrect.x+vrect.width-orect.width; }
+    let y = this.elOverlay.offsetTop + (evt.clientY - this.overlayStartY);
+    if (y < this.elVideo.offsetTop) { y = this.elVideo.offsetTop; }
+    else if ((y+orect.height) > (vrect.y+vrect.height)) { y = vrect.y+vrect.height-orect.height; }
+    this.elOverlay.style.left = x + 'px';
+    this.elOverlay.style.top = y + 'px';
+
+    this.oRect.x = x;
+    this.oRect.y = y;
+    this.statusUpdate();
+  }
+}
+
+const app = el('#app', new VideoProc())
+function main() {
+  redom.mount(document.body, app);
+}
+
+window.addEventListener('load', function(){setTimeout(main,0)}, false)
+</script>
+</body>
+</html>
