@@ -3,8 +3,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>scam: samar's cam</title>
+<!--
 <link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
 <script src="https://redom.js.org/redom.min.js"></script>
+-->
+<link rel="stylesheet" href="tachyons.min.css"/>
+<script src="redom.min.js"></script>
 </head>
 
 <body class='h-100'>
@@ -42,7 +46,7 @@ class VideoProc {
         devlist.push(el('option', {'value':k.deviceId}, k.label));
       });
       if (devlist.length > 1) {
-        this.elSelectVideoDevice.addEventListener('change',this.selectVideoDevice,false);
+        this.elSelectVideoDevice.addEventListener('input',this.selectVideoDevice,false);
         setChildren(this.elSelectVideoDevice, devlist);
         this.elSelectVideoDevice.style.display = 'block';
       } else {
@@ -52,9 +56,9 @@ class VideoProc {
     });
   }
   selectVideoDevice = (evt) => {
-    //ideally delete-elSelectVideoDevice - next-best-thing
     console.log('selectVideoDevice', this.elSelectVideoDevice.value, evt);
-    this.elSelectVideoDevice.removeEventListener('change',this.selectVideoDevice,false);
+    //ideally delete-elSelectVideoDevice - next-best-thing
+    this.elSelectVideoDevice.removeEventListener('input',this.selectVideoDevice,false);
     this.elSelectVideoDevice.style.display = 'none';
     navigator.mediaDevices.getUserMedia({audio:false, video:true, deviceId: this.elSelectVideoDevice.value})
     .then(this.onVideoOpen).catch(this.onVideoError);
