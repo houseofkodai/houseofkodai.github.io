@@ -53,6 +53,7 @@ class VideoProc {
   }
   selectVideoDevice = (evt) => {
     //ideally delete-elSelectVideoDevice - next-best-thing
+    console.log('selectVideoDevice', this.elSelectVideoDevice.value, evt);
     this.elSelectVideoDevice.removeEventListener('change',this.selectVideoDevice,false);
     this.elSelectVideoDevice.style.display = 'none';
     navigator.mediaDevices.getUserMedia({audio:false, video:true, deviceId: this.elSelectVideoDevice.value})
