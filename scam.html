@@ -1,4 +1,4 @@
-<!doctype html><html lang="en">
+<!doctype html><html lang="en" class='h-100'>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -6,44 +6,70 @@
 <link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
 <script src="https://redom.js.org/redom.min.js"></script>
 </head>
-<body>
 
+<body class='h-100'>
+<noscript class='bg-yellow w-100 h-100 flex justify-center items-center'>You need to enable JavaScript to use this app!</noscript>
 <script>
-const { el, mount} = redom
+const { el, mount, setChildren} = redom
 
 class VideoProc {
   constructor() {
-    this.oRect = {'x':0,'y':0,'w':320,'h':240};
-    this.elStatus = el('.bg-white.fixed.pa1', {'style':{'left':'50%','transform':'translateX(-50%)'}}, 'status');
+    this.oRect = {'x':0,'y':0,'w':0,'h':0};
     this.elOffScreenCanvas = document.createElement('canvas');
-    this.elOverlay = el('canvas.absolute', {'draggable':true});
-    //note: if w-100 is set then overlay w/h needs to be adjusted by appropriate ratio elWidth/videoWidth elHeight/videoHeight
-    this.elVideo = el('video');
-    this.el = el('.w-100', [this.elStatus, this.elVideo, this.elOverlay]);
 
+    this.elStatus = el('.fixed.bg-white.pa1.self-start');
+    this.elSelectVideoDevice = el('select.fixed', {'style':{'display':'none'}});
+    //hide-elements until camera permission has been allowed.
+    this.elVideo = el('video.fixed.bg-yellow', {'style':{'display':'none'}});
+    this.elOverlay = el('canvas.absolute.ba.bw1.b--blue', {'style':{'display':'none'}});
+    this.el = el('.w-100.h-100.flex.justify-center.bg-black', [this.elVideo, this.elOverlay, this.elSelectVideoDevice, this.elStatus]);
+    //note: if w-100 is set then overlay w/h needs to be adjusted by appropriate ratio elWidth/videoWidth elHeight/videoHeight
+
+    window.addEventListener('resize',this.onResize,false);
     this.el.addEventListener('dblclick',this.overlayDblClick,false);
-    this.elOverlay.addEventListener('dragstart',this.dragStart,false);
-    this.elVideo.addEventListener('dragover',this.dragOver,false);
-    this.elVideo.addEventListener('drop',this.dragDrop,false);
-    //this.elVideo.addEventListener('loadedmetadata',this.videoOnLoadedMetaData,false);
+    this.elVideo.addEventListener('loadedmetadata',this.videoOnLoadedMetaData,false);
 
     this.frameCount = 0;
     this.startTime = 0;
     this.fps = 0;
   }
   onmount() {
-    this.overlayStartX = this.el.offsetLeft;
-    this.overlayStartY = this.el.offsetTop;
-
-    this.elOverlay.style.left = this.overlayStartX;
-    this.elOverlay.style.top = this.overlayStartY;
+    //hide-elements until camera permission has been allowed.
+    navigator.mediaDevices.enumerateDevices().then((devices) => {
+      //let devlist = [el('option', 'Select Camera')];
+      let devlist = [];
+      devices.filter((d) => d.kind === 'videoinput').forEach((k,v) => {
+        devlist.push(el('option', {'value':k.deviceId}, k.label));
+      });
+      if (devlist.length > 1) {
+        this.elSelectVideoDevice.addEventListener('change',this.selectVideoDevice,false);
+        setChildren(this.elSelectVideoDevice, devlist);
+        this.elSelectVideoDevice.style.display = 'block';
+      } else {
+        navigator.mediaDevices.getUserMedia({audio:false, video:true, deviceId: devlist[0].value})
+          .then(this.onVideoOpen).catch(this.onVideoError);
+      }
+    });
+  }
+  selectVideoDevice = (evt) => {
+    //ideally delete-elSelectVideoDevice - next-best-thing
+    this.elSelectVideoDevice.removeEventListener('change',this.selectVideoDevice,false);
+    this.elSelectVideoDevice.style.display = 'none';
+    navigator.mediaDevices.getUserMedia({audio:false, video:true, deviceId: this.elSelectVideoDevice.value})
+    .then(this.onVideoOpen).catch(this.onVideoError);
+  }
+  onResize = (evt) => {
+    //console.log('onResize', this.elVideo.videoWidth);
+    this.oRect.w = Math.round(this.elVideo.videoWidth / 2);
+    this.oRect.h = Math.round(this.elVideo.videoHeight / 2);
     this.elOverlay.width = this.oRect.w;
     this.elOverlay.height = this.oRect.h;
     this.elOffScreenCanvas.width = this.oRect.w;
     this.elOffScreenCanvas.height = this.oRect.h;
-
-    navigator.mediaDevices.getUserMedia({audio:false, video:true})
-      .then(this.onVideoOpen).catch(this.onVideoError);
+    this.oRect.x = this.elVideo.offsetLeft + Math.round((this.elVideo.videoWidth - this.oRect.w)/2);
+    this.oRect.y = this.elVideo.offsetTop + Math.round((this.elVideo.videoHeight - this.oRect.h)/2);
+    this.elOverlay.style.left = this.oRect.x + 'px';
+    this.elOverlay.style.top = this.oRect.y + 'px';
   }
   statusUpdate() {
     this.elStatus.innerText = this.fps + ' ' + this.oRect.x + ',' + this.oRect.y + ' ' +
@@ -59,19 +85,23 @@ class VideoProc {
     }
   }
   onVideoOpen = (stream) => {
+    //console.log('onVideoOpen');
+    this.elOverlay.style.display = 'block';
+    this.elVideo.style.display = 'block';
     this.frameCount = 0;
     this.startTime = new Date().getTime();
     this.elVideo.srcObject = stream;
     this.elVideo.play();
-    this.rafID = requestAnimationFrame(this.onFrame.bind(this));
-    this.statusUpdate();
   }
   onVideoError = (err) => {
-    this.elStatus.innerText = '-ERR getUserMedia: ' + err.name + err.message;
-    console.log('onVideoError', err);
+    this.elStatus.innerText = err.name + ': Allow access to camera, and try again.';
+    this.elStatus.classList.add('red');
   }
   videoOnLoadedMetaData = (evt) => {
-    console.log('videoOnLoadedMetaData', evt, this.elVideo.videoWidth, this.elVideo.videoHeight);
+    //console.log('videoOnLoadedMetaData', evt, this.elVideo.videoWidth, this.elVideo.videoHeight);
+    this.onResize();
+    this.statusUpdate();
+    this.rafID = requestAnimationFrame(this.onFrame.bind(this));    
   }
   onFrame(timestamp) {
     if (this.elVideo.readyState === this.elVideo.HAVE_ENOUGH_DATA) {
@@ -79,10 +109,10 @@ class VideoProc {
       const ctxOverlay = this.elOverlay.getContext('2d');
 
       // Draw selected area of video to OffScreenCanvas
-      ctxOffScreen.drawImage(this.elVideo, this.oRect.x, this.oRect.y, this.oRect.w, this.oRect.h, 0, 0, this.oRect.w, this.oRect.h);
+      ctxOffScreen.drawImage(this.elVideo, (this.oRect.x-this.elVideo.offsetLeft), (this.oRect.y-this.elVideo.offsetTop), this.oRect.w, this.oRect.h, 0, 0, this.oRect.w, this.oRect.h);
 
       // get the imageData from OffScreenCanvas
-	  let rgba = ctxOffScreen.getImageData(0, 0, 640, 480);
+	  let rgba = ctxOffScreen.getImageData(0, 0, this.oRect.w, this.oRect.h);
 
       // grayscale magic-numbers change as reqd. 
       //from http://www.poynton.com/notes/colour_and_gamma/ColorFAQ.html
@@ -110,35 +140,22 @@ class VideoProc {
     }
 	this.rafID = requestAnimationFrame(this.onFrame.bind(this));
   }
-  dragStart = (evt) => {
-    this.overlayStartX = evt.clientX;
-    this.overlayStartY = evt.clientY;
-  }
-  dragOver = (evt) => {
-    event.preventDefault();
-    return false;
-  }
-  dragDrop = (evt) => {
-    let vrect = this.elVideo.getBoundingClientRect();
-    let orect = this.elOverlay.getBoundingClientRect();
-    let x = this.elOverlay.offsetLeft + (evt.clientX - this.overlayStartX);
-    if (x <= this.elVideo.offsetLeft) { x = this.elVideo.offsetLeft; }
-    else if ((x+orect.width) > (vrect.x+vrect.width)) { x = vrect.x+vrect.width-orect.width; }
-    let y = this.elOverlay.offsetTop + (evt.clientY - this.overlayStartY);
-    if (y < this.elVideo.offsetTop) { y = this.elVideo.offsetTop; }
-    else if ((y+orect.height) > (vrect.y+vrect.height)) { y = vrect.y+vrect.height-orect.height; }
-    this.elOverlay.style.left = x + 'px';
-    this.elOverlay.style.top = y + 'px';
+}
 
-    this.oRect.x = x;
-    this.oRect.y = y;
-    this.statusUpdate();
+class App {
+  constructor() {
+    if (navigator.mediaDevices && navigator.getUserMedia && window.MediaRecorder) {
+      this.videoProc = new VideoProc();
+      this.el = el('#app.w-100.h-100.flex.justify-center.items-center', this.videoProc);
+    } else {
+      this.el = el('p.bg-yellow.w-100.h-100.flex.justify-center.items-center', 'Supported/Tested browsers are Google Chrome 79+');
+    }
   }
 }
 
-const app = el('#app', new VideoProc())
+//const app = new App(); //if you want global app then use it - good habit not to though.
 function main() {
-  redom.mount(document.body, app);
+  redom.mount(document.body, new App());
 }
 
 window.addEventListener('load', function(){setTimeout(main,0)}, false)
