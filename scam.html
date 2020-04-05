@@ -12,26 +12,56 @@
 <script>
 const { el, mount, setChildren} = redom
 
+function hhmmss(secs) {
+  let nstr = function(n) {return ((n<10)?'0':'') + n};
+  if (secs >= (60*60)) {
+    let rsecs = secs % 3600;
+    return nstr(Math.round(secs/3600)) + nstr(Math.round(rsecs/60)) + ':' + nstr(rsecs%60);
+  } else if (secs >= 60) {
+    return nstr(Math.round(secs/60)) + ':' + nstr(secs%60);
+  } else {
+    return nstr(secs);
+  }
+}
+
 class VideoProc {
   constructor() {
+
+    this.urlParams = new URLSearchParams(window.location.search);
+
     this.oRect = {'x':0,'y':0,'w':0,'h':0};
+    this.oRect.w = parseInt(this.urlParams.get('w') || '0') || 0;
+    this.oRect.h = parseInt(this.urlParams.get('h') || '0') || 0;
+    if (this.oRect.w < 0) {
+      this.oRect.w = 0;
+    } else if ((this.oRect.w == 0) && (this.oRect.h != 0)) {
+      this.oRect.w = this.oRect.h;
+    }
+    if (this.oRect.h < 0) {
+      this.oRect.h = 0;
+    } else if ((this.oRect.h == 0) && (this.oRect.w != 0)) {
+      this.oRect.h = this.oRect.w;
+    }
+    this.fps = parseInt(this.urlParams.get('fps') || '25') || 25;
+
     this.elOffScreenCanvas = document.createElement('canvas');
 
     this.elStatus = el('.fixed.bg-white.pa1.self-start');
     this.elSelectVideoDevice = el('select.fixed', {'style':{'display':'none'}});
+
     //hide-elements until camera permission has been allowed.
+    //note: if elVideo is stretched to w-100 then overlay w/h needs to be adjusted by appropriate ratio elWidth/videoWidth elHeight/videoHeight
     this.elVideo = el('video.fixed.bg-yellow', {'style':{'display':'none'}});
     this.elOverlay = el('canvas.absolute.ba.bw1.b--blue', {'style':{'display':'none'}});
+
     this.el = el('.w-100.h-100.flex.justify-center.bg-black', [this.elVideo, this.elOverlay, this.elSelectVideoDevice, this.elStatus]);
-    //note: if w-100 is set then overlay w/h needs to be adjusted by appropriate ratio elWidth/videoWidth elHeight/videoHeight
 
     window.addEventListener('resize',this.onResize,false);
     this.el.addEventListener('dblclick',this.overlayDblClick,false);
     this.elVideo.addEventListener('loadedmetadata',this.videoOnLoadedMetaData,false);
 
-    this.frameCount = 0;
-    this.startTime = 0;
-    this.fps = 0;
+    this.lastFrameTime = 0;
+    this.frameInterval = Math.round(1000 / this.fps);
   }
   onmount() {
     //hide-elements until camera permission has been allowed.
@@ -56,29 +86,31 @@ class VideoProc {
   selectVideoDevice = (evt) => {
     //console.log('selectVideoDevice', this.elSelectVideoDevice.value, evt);
     if (this.elSelectVideoDevice.value != 'Select Camera') {
-      //ideally delete-elSelectVideoDevice - next-best-thing
-      this.elSelectVideoDevice.removeEventListener('input',this.selectVideoDevice,false);
-      this.elSelectVideoDevice.style.display = 'none';
       navigator.mediaDevices.getUserMedia({'audio':false, 'video':{'deviceId': this.elSelectVideoDevice.value}})
       .then(this.onVideoOpen).catch(this.onVideoError);
+      //no need for elSelectVideoDevice anymore
+      this.elSelectVideoDevice.style.display = 'none';
+      this.elSelectVideoDevice.removeEventListener('input',this.selectVideoDevice,false);
     }
   }
   onResize = (evt) => {
-    //console.log('onResize', this.elVideo.videoWidth);
-    this.oRect.w = Math.round(this.elVideo.videoWidth / 2);
-    this.oRect.h = Math.round(this.elVideo.videoHeight / 2);
-    this.elOverlay.width = this.oRect.w;
-    this.elOverlay.height = this.oRect.h;
-    this.elOffScreenCanvas.width = this.oRect.w;
-    this.elOffScreenCanvas.height = this.oRect.h;
+    //console.log('onResize', this.oRect);
+    if ((this.oRect.w == 0) || 
+        (this.oRect.w > this.elVideo.videoWidth) ||
+        (this.oRect.h > this.elVideo.videoHeight)) {
+      this.oRect.w = Math.round(this.elVideo.videoWidth / 2);
+      this.oRect.h = Math.round(this.elVideo.videoHeight / 2);
+    }
+    if (this.oRect.w != this.elOverlay.width) {
+      this.elOverlay.width = this.oRect.w;
+      this.elOverlay.height = this.oRect.h;
+      this.elOffScreenCanvas.width = this.oRect.w;
+      this.elOffScreenCanvas.height = this.oRect.h;
+    }
     this.oRect.x = this.elVideo.offsetLeft + Math.round((this.elVideo.videoWidth - this.oRect.w)/2);
     this.oRect.y = this.elVideo.offsetTop + Math.round((this.elVideo.videoHeight - this.oRect.h)/2);
     this.elOverlay.style.left = this.oRect.x + 'px';
     this.elOverlay.style.top = this.oRect.y + 'px';
-  }
-  statusUpdate() {
-    this.elStatus.innerText = this.fps + ' ' + this.oRect.x + ',' + this.oRect.y + ' ' +
-      this.oRect.w + 'x' + this.oRect.h;
   }
   overlayDblClick = (evt) => {
     if (this.elStatus.style.display != 'none') {
@@ -93,7 +125,6 @@ class VideoProc {
     //console.log('onVideoOpen');
     this.elOverlay.style.display = 'block';
     this.elVideo.style.display = 'block';
-    this.frameCount = 0;
     this.startTime = new Date().getTime();
     this.elVideo.srcObject = stream;
     this.elVideo.play();
@@ -105,11 +136,13 @@ class VideoProc {
   videoOnLoadedMetaData = (evt) => {
     //console.log('videoOnLoadedMetaData', evt, this.elVideo.videoWidth, this.elVideo.videoHeight);
     this.onResize();
-    this.statusUpdate();
     this.rafID = requestAnimationFrame(this.onFrame.bind(this));    
   }
   onFrame(timestamp) {
-    if (this.elVideo.readyState === this.elVideo.HAVE_ENOUGH_DATA) {
+    if ((this.elVideo.readyState === this.elVideo.HAVE_ENOUGH_DATA) &&
+        ((new Date().getTime() - this.lastFrameTime) >= this.frameInterval)) {
+      this.lastFrameTime = new Date().getTime();
+
       const ctxOffScreen = this.elOffScreenCanvas.getContext('2d');
       const ctxOverlay = this.elOverlay.getContext('2d');
 
@@ -133,15 +166,7 @@ class VideoProc {
       // draw modified Image on overlayCanvas
       ctxOverlay.putImageData(rgba, 0, 0);
 
-      this.frameCount += 1;
-      let elapsed = (new Date().getTime()) - this.startTime;
-      this.fps = Math.round(this.frameCount*1000/elapsed);
-      this.statusUpdate();
-      //reset counters - so fps is for last 5 seconds
-      if (elapsed > 5000) {
-        this.frameCount = 0;
-        this.startTime = new Date().getTime();
-      }
+      this.elStatus.innerText = hhmmss(Math.round(((new Date().getTime()) - this.startTime)/1000));
     }
 	this.rafID = requestAnimationFrame(this.onFrame.bind(this));
   }
@@ -158,9 +183,10 @@ class App {
   }
 }
 
-//const app = new App(); //if you want global app then use it - good habit not to though.
+//app is global cuz. need to debug in console
+const app = new App();
 function main() {
-  redom.mount(document.body, new App());
+  redom.mount(document.body, app);
 }
 
 window.addEventListener('load', function(){setTimeout(main,0)}, false)
