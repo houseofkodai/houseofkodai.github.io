@@ -22,8 +22,7 @@ class VideoProc {
     //hide-elements until camera permission has been allowed.
     this.elVideo = el('video.fixed.bg-yellow', {'style':{'display':'none'}});
     this.elOverlay = el('canvas.absolute.ba.bw1.b--blue', {'style':{'display':'none'}});
-    this.elLog = el('pre.w-100.bg-white', 'log');
-    this.el = el('.w-100.h-100.flex.justify-center.bg-black', [this.elVideo, this.elOverlay, this.elSelectVideoDevice, this.elStatus, this.elLog]);
+    this.el = el('.w-100.h-100.flex.justify-center.bg-black', [this.elVideo, this.elOverlay, this.elSelectVideoDevice, this.elStatus]);
     //note: if w-100 is set then overlay w/h needs to be adjusted by appropriate ratio elWidth/videoWidth elHeight/videoHeight
 
     window.addEventListener('resize',this.onResize,false);
@@ -40,33 +39,27 @@ class VideoProc {
       let devlist = [el('option', 'Select Camera')];
       devices.filter((d) => d.kind === 'videoinput').forEach((k,v) => {
         devlist.push(el('option', {'value':k.deviceId}, k.label));
-        this.log('VideoDeviceId: ' + k.deviceId + '\nVideoDeviceLabel: ' + k.label);
       });
       if (devlist.length < 2) {
         this.elStatus.innerText = 'No videoinput/camera device available.';
         this.elStatus.classList.add('red');        
-      } else if (devlist.length > 1) {
+      } else if (devlist.length > 2) {
         this.elSelectVideoDevice.addEventListener('input',this.selectVideoDevice,false);
         setChildren(this.elSelectVideoDevice, devlist);
         this.elSelectVideoDevice.style.display = 'block';
       } else {
-        navigator.mediaDevices.getUserMedia({audio:false, video:true, deviceId: devlist[1].value})
+        navigator.mediaDevices.getUserMedia({'audio':false, 'video':{'deviceId': devlist[1].value}})
           .then(this.onVideoOpen).catch(this.onVideoError);
       }
     });
   }
-  log = (txt) => {
-    this.elLog.innerText += '\n' + txt;
-  }
   selectVideoDevice = (evt) => {
     //console.log('selectVideoDevice', this.elSelectVideoDevice.value, evt);
     if (this.elSelectVideoDevice.value != 'Select Camera') {
-      this.log('selectVideoDevice '+ this.elSelectVideoDevice.value);
-      return;
       //ideally delete-elSelectVideoDevice - next-best-thing
       this.elSelectVideoDevice.removeEventListener('input',this.selectVideoDevice,false);
       this.elSelectVideoDevice.style.display = 'none';
-      navigator.mediaDevices.getUserMedia({audio:false, video:true, deviceId: this.elSelectVideoDevice.value})
+      navigator.mediaDevices.getUserMedia({'audio':false, 'video':{'deviceId': this.elSelectVideoDevice.value}})
       .then(this.onVideoOpen).catch(this.onVideoError);
     }
   }
