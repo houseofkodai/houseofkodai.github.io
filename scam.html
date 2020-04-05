@@ -3,12 +3,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>scam: samar's cam</title>
-<!--
 <link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
 <script src="https://redom.js.org/redom.min.js"></script>
--->
-<link rel="stylesheet" href="tachyons.min.css"/>
-<script src="redom.min.js"></script>
 </head>
 
 <body class='h-100'>
@@ -40,28 +36,32 @@ class VideoProc {
   onmount() {
     //hide-elements until camera permission has been allowed.
     navigator.mediaDevices.enumerateDevices().then((devices) => {
-      //let devlist = [el('option', 'Select Camera')];
-      let devlist = [];
+      let devlist = [el('option', 'Select Camera')];
       devices.filter((d) => d.kind === 'videoinput').forEach((k,v) => {
         devlist.push(el('option', {'value':k.deviceId}, k.label));
       });
-      if (devlist.length > 1) {
+      if (devlist.length < 2) {
+        this.elStatus.innerText = 'No videoinput/camera device available.';
+        this.elStatus.classList.add('red');        
+      } else if (devlist.length > 2) {
         this.elSelectVideoDevice.addEventListener('input',this.selectVideoDevice,false);
         setChildren(this.elSelectVideoDevice, devlist);
         this.elSelectVideoDevice.style.display = 'block';
       } else {
-        navigator.mediaDevices.getUserMedia({audio:false, video:true, deviceId: devlist[0].value})
+        navigator.mediaDevices.getUserMedia({audio:false, video:true, deviceId: devlist[1].value})
           .then(this.onVideoOpen).catch(this.onVideoError);
       }
     });
   }
   selectVideoDevice = (evt) => {
-    console.log('selectVideoDevice', this.elSelectVideoDevice.value, evt);
-    //ideally delete-elSelectVideoDevice - next-best-thing
-    this.elSelectVideoDevice.removeEventListener('input',this.selectVideoDevice,false);
-    this.elSelectVideoDevice.style.display = 'none';
-    navigator.mediaDevices.getUserMedia({audio:false, video:true, deviceId: this.elSelectVideoDevice.value})
-    .then(this.onVideoOpen).catch(this.onVideoError);
+    //console.log('selectVideoDevice', this.elSelectVideoDevice.value, evt);
+    if (this.elSelectVideoDevice.value != 'Select Camera') {
+      //ideally delete-elSelectVideoDevice - next-best-thing
+      this.elSelectVideoDevice.removeEventListener('input',this.selectVideoDevice,false);
+      this.elSelectVideoDevice.style.display = 'none';
+      navigator.mediaDevices.getUserMedia({audio:false, video:true, deviceId: this.elSelectVideoDevice.value})
+      .then(this.onVideoOpen).catch(this.onVideoError);
+    }
   }
   onResize = (evt) => {
     //console.log('onResize', this.elVideo.videoWidth);
