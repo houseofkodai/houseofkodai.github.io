@@ -3,8 +3,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>scam: samar's cam</title>
+<!--
 <link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
 <script src="https://redom.js.org/redom.min.js"></script>
+-->
+<link rel="stylesheet" href="tachyons.min.css"/>
+<script src="redom.min.js"></script>
 </head>
 
 <body class='h-100'>
@@ -22,7 +26,8 @@ class VideoProc {
     //hide-elements until camera permission has been allowed.
     this.elVideo = el('video.fixed.bg-yellow', {'style':{'display':'none'}});
     this.elOverlay = el('canvas.absolute.ba.bw1.b--blue', {'style':{'display':'none'}});
-    this.el = el('.w-100.h-100.flex.justify-center.bg-black', [this.elVideo, this.elOverlay, this.elSelectVideoDevice, this.elStatus]);
+    this.elLog = el('pre.w-100.bg-white', 'log');
+    this.el = el('.w-100.h-100.flex.justify-center.bg-black', [this.elVideo, this.elOverlay, this.elSelectVideoDevice, this.elStatus, this.elLog]);
     //note: if w-100 is set then overlay w/h needs to be adjusted by appropriate ratio elWidth/videoWidth elHeight/videoHeight
 
     window.addEventListener('resize',this.onResize,false);
@@ -39,11 +44,12 @@ class VideoProc {
       let devlist = [el('option', 'Select Camera')];
       devices.filter((d) => d.kind === 'videoinput').forEach((k,v) => {
         devlist.push(el('option', {'value':k.deviceId}, k.label));
+        this.log('VideoDeviceId: ' + k.deviceId + '\nVideoDeviceLabel: ' + k.label);
       });
       if (devlist.length < 2) {
         this.elStatus.innerText = 'No videoinput/camera device available.';
         this.elStatus.classList.add('red');        
-      } else if (devlist.length > 2) {
+      } else if (devlist.length > 1) {
         this.elSelectVideoDevice.addEventListener('input',this.selectVideoDevice,false);
         setChildren(this.elSelectVideoDevice, devlist);
         this.elSelectVideoDevice.style.display = 'block';
@@ -53,9 +59,14 @@ class VideoProc {
       }
     });
   }
+  log = (txt) => {
+    this.elLog.innerText += '\n' + txt;
+  }
   selectVideoDevice = (evt) => {
     //console.log('selectVideoDevice', this.elSelectVideoDevice.value, evt);
     if (this.elSelectVideoDevice.value != 'Select Camera') {
+      this.log('selectVideoDevice '+ this.elSelectVideoDevice.value);
+      return;
       //ideally delete-elSelectVideoDevice - next-best-thing
       this.elSelectVideoDevice.removeEventListener('input',this.selectVideoDevice,false);
       this.elSelectVideoDevice.style.display = 'none';
