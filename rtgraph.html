@@ -42,7 +42,7 @@ class RealTimeGraph {
     this.height = r.height;
     this.white_out = r.width * 0.01;
     this.fade_out  = r.width * 0.15;
-    this.draw(this.ecg);
+    this.rafID = requestAnimationFrame(this.draw);
   }
   Click = (evt) => {
     if (this.rafID) {
