@@ -3,8 +3,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>scam: samar's cam</title>
+<!--
 <link rel="stylesheet" href="https://unpkg.com/tachyons@4.10.0/css/tachyons.min.css"/>
 <script src="https://redom.js.org/redom.min.js"></script>
+-->
+<link rel="stylesheet" href="tachyons.min.css"/>
+<script src="redom.min.js"></script>
 </head>
 
 <body class='h-100'>
@@ -77,9 +81,9 @@ class VideoProc {
     this.el = el('.w-100.h-100.flex.justify-center', [
       this.elVideo = el('video.fixed.bg-yellow', {'style':{'display':'none'}}), 
       this.elOverlay = el('canvas.absolute.ba.bw1.b--blue', {'style':{'display':'none'}}), 
-      this.elSelectVideoDevice = el('select.fixed', {'style':{'display':'none'}}), 
+      this.graph = new Graph('yellow', (w*h)),
       this.elStatus = el('.fixed.pa1.self-start.light-blue'),
-      this.graph = new Graph('yellow', (w*h))
+      this.elSelectVideoDevice = el('select.fixed', {'style':{'display':'none'}})
     ]);
 
     //window.addEventListener('resize',this.onResize,false);
@@ -96,7 +100,7 @@ class VideoProc {
       if (devlist.length < 2) {
         this.elStatus.innerText = 'No videoinput/camera device available.';
         this.elStatus.classList.add('red');        
-      } else if (devlist.length > 1) {
+      } else if (devlist.length > 2) {
         this.elSelectVideoDevice.addEventListener('input',this.selectVideoDevice,false);
         setChildren(this.elSelectVideoDevice, devlist);
         this.elSelectVideoDevice.style.display = 'block';
