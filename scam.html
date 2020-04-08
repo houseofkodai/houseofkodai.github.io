@@ -14,9 +14,9 @@ const { el, mount, setChildren} = redom
 
 function hhmmss(secs) {
   let nstr = function(n) {return ((n<10)?'0':'') + n};
-  if (secs >= (60*60)) {
+  if (secs >= (3600)) {
     let rsecs = secs % 3600;
-    return nstr(Math.round(secs/3600)) + nstr(Math.round(rsecs/60)) + ':' + nstr(rsecs%60);
+    return nstr(Math.round(secs/3600)) + ':' + nstr(Math.round(rsecs/60)) + ':' + nstr(rsecs%60);
   } else if (secs >= 60) {
     return nstr(Math.round(secs/60)) + ':' + nstr(secs%60);
   } else {
@@ -24,44 +24,67 @@ function hhmmss(secs) {
   }
 }
 
+class Graph {
+  constructor(lineColor, vmax) {
+    this.lineColor = lineColor || 'black';
+    this.vmax = vmax;
+    this.data = [];
+    this.el = el('canvas.fixed');
+  }
+  onmount() {
+    //let parent = this.el.parentNode;
+    //this.el.width = parent.clientWidth;
+    this.ctx = this.el.getContext('2d');
+    this.ctx.width = this.el.clientWidth;
+    this.ctx.height = this.el.clientHeight;
+  }
+  update(value) {
+    const w = this.el.clientWidth;
+    const h = this.el.clientHeight;
+
+    //ensure that array length is less than width
+    if (this.data.length >= w) {
+      this.data.shift();
+    }
+    this.data.push(value/this.vmax); //% of vmax
+
+    this.ctx.clearRect(0, 0, w, h);
+    this.ctx.strokeStyle = this.lineColor;
+    this.ctx.beginPath();
+    const n = this.data.length;
+    this.data.forEach((val, i) => {
+      this.ctx.lineTo(i*w/n, h*val);
+    });
+    this.ctx.stroke();
+  }
+}
+
 class VideoProc {
-  constructor() {
+  constructor(w,h,fps,gmax) {
 
-    this.urlParams = new URLSearchParams(window.location.search);
-
-    this.oRect = {'x':0,'y':0,'w':0,'h':0};
-    this.oRect.w = parseInt(this.urlParams.get('w') || '0') || 0;
-    this.oRect.h = parseInt(this.urlParams.get('h') || '0') || 0;
-    if (this.oRect.w < 0) {
-      this.oRect.w = 0;
-    } else if ((this.oRect.w == 0) && (this.oRect.h != 0)) {
-      this.oRect.w = this.oRect.h;
-    }
-    if (this.oRect.h < 0) {
-      this.oRect.h = 0;
-    } else if ((this.oRect.h == 0) && (this.oRect.w != 0)) {
-      this.oRect.h = this.oRect.w;
-    }
-    this.fps = parseInt(this.urlParams.get('fps') || '25') || 25;
-
-    this.elOffScreenCanvas = document.createElement('canvas');
-
-    this.elStatus = el('.fixed.bg-white.pa1.self-start');
-    this.elSelectVideoDevice = el('select.fixed', {'style':{'display':'none'}});
-
-    //hide-elements until camera permission has been allowed.
-    //note: if elVideo is stretched to w-100 then overlay w/h needs to be adjusted by appropriate ratio elWidth/videoWidth elHeight/videoHeight
-    this.elVideo = el('video.fixed.bg-yellow', {'style':{'display':'none'}});
-    this.elOverlay = el('canvas.absolute.ba.bw1.b--blue', {'style':{'display':'none'}});
-
-    this.el = el('.w-100.h-100.flex.justify-center.bg-black', [this.elVideo, this.elOverlay, this.elSelectVideoDevice, this.elStatus]);
-
-    window.addEventListener('resize',this.onResize,false);
-    this.el.addEventListener('dblclick',this.overlayDblClick,false);
-    this.elVideo.addEventListener('loadedmetadata',this.videoOnLoadedMetaData,false);
-
+    this.ox = 0;
+    this.oy = 0;
+    this.ow = w;
+    this.oh = h;
+    this.fps = fps;
+    this.gmax = gmax || 127;
     this.lastFrameTime = 0;
     this.frameInterval = Math.round(1000 / this.fps);
+
+    this.elOffScreenCanvas = document.createElement('canvas');
+    //hide-elements until camera permission has been allowed.
+    //note: simpler to not stretch elVideo to w-100 otherwise overlay w/h needs to be adjusted by appropriate ratio elWidth/videoWidth elHeight/videoHeight
+    this.el = el('.w-100.h-100.flex.justify-center', [
+      this.elVideo = el('video.fixed.bg-yellow', {'style':{'display':'none'}}), 
+      this.elOverlay = el('canvas.absolute.ba.bw1.b--blue', {'style':{'display':'none'}}), 
+      this.elSelectVideoDevice = el('select.fixed', {'style':{'display':'none'}}), 
+      this.elStatus = el('.fixed.pa1.self-start.light-blue'),
+      this.graph = new Graph('yellow', (w*h))
+    ]);
+
+    //window.addEventListener('resize',this.onResize,false);
+    this.el.addEventListener('dblclick',this.overlayDblClick,false);
+    this.elVideo.addEventListener('loadedmetadata',this.videoOnLoadedMetaData,false);
   }
   onmount() {
     //hide-elements until camera permission has been allowed.
@@ -94,31 +117,36 @@ class VideoProc {
     }
   }
   onResize = (evt) => {
-    //console.log('onResize', this.oRect);
-    if ((this.oRect.w == 0) || 
-        (this.oRect.w > this.elVideo.videoWidth) ||
-        (this.oRect.h > this.elVideo.videoHeight)) {
-      this.oRect.w = Math.round(this.elVideo.videoWidth / 2);
-      this.oRect.h = Math.round(this.elVideo.videoHeight / 2);
+    //console.log('onResize', this.elVideo.offsetLeft, this.elVideo.offsetTop, this.elVideo.videoWidth, this.elVideo.videoHeight);
+    if ((this.ow == 0) || 
+        (this.ow > this.elVideo.videoWidth) ||
+        (this.oh > this.elVideo.videoHeight)) {
+      this.ow = Math.round(this.elVideo.videoWidth / 2);
+      this.oh = Math.round(this.elVideo.videoHeight / 2);
+      this.graph.vmax = (this.ow * this.oh);
     }
-    if (this.oRect.w != this.elOverlay.width) {
-      this.elOverlay.width = this.oRect.w;
-      this.elOverlay.height = this.oRect.h;
-      this.elOffScreenCanvas.width = this.oRect.w;
-      this.elOffScreenCanvas.height = this.oRect.h;
+    if (this.ow != this.elOverlay.width) {
+      this.elOverlay.width = this.ow;
+      this.elOverlay.height = this.oh;
+      this.elOffScreenCanvas.width = this.ow;
+      this.elOffScreenCanvas.height = this.oh;
     }
-    this.oRect.x = this.elVideo.offsetLeft + Math.round((this.elVideo.videoWidth - this.oRect.w)/2);
-    this.oRect.y = this.elVideo.offsetTop + Math.round((this.elVideo.videoHeight - this.oRect.h)/2);
-    this.elOverlay.style.left = this.oRect.x + 'px';
-    this.elOverlay.style.top = this.oRect.y + 'px';
+    //note: bug in logic or behaviour - video element moves due to flex position but not updated below
+    let r = this.elVideo.getBoundingClientRect();
+    this.ox = r.left + Math.round((this.elVideo.videoWidth - this.ow)/2);
+    this.oy = r.top + Math.round((this.elVideo.videoHeight - this.oh)/2);
+    this.elOverlay.style.left = this.ox + 'px';
+    this.elOverlay.style.top = this.oy + 'px';
+    this.graph.el.style.left = r.left + 'px';
+    this.graph.el.style.top = r.height - 50 + 'px';
+    this.graph.el.width = this.elVideo.videoWidth;
+    this.graph.el.height = 50; //this.elVideo.videoHeight - (this.oy + this.oh + 2);
   }
   overlayDblClick = (evt) => {
     if (this.elStatus.style.display != 'none') {
       this.elStatus.style.display = 'none';
-      //cancelAnimationFrame(this.rafID);
     } else {
       this.elStatus.style.display = 'block';
-	  //this.rafID = requestAnimationFrame(this.onFrame.bind(this));
     }
   }
   onVideoOpen = (stream) => {
@@ -134,39 +162,46 @@ class VideoProc {
     this.elStatus.classList.add('red');
   }
   videoOnLoadedMetaData = (evt) => {
-    //console.log('videoOnLoadedMetaData', evt, this.elVideo.videoWidth, this.elVideo.videoHeight);
+    //console.log('videoOnLoadedMetaData', this.elVideo.offsetLeft, this.elVideo.offsetTop, this.elVideo.videoWidth, this.elVideo.videoHeight);
     this.onResize();
     this.rafID = requestAnimationFrame(this.onFrame.bind(this));    
   }
   onFrame(timestamp) {
-    if ((this.elVideo.readyState === this.elVideo.HAVE_ENOUGH_DATA) &&
-        ((new Date().getTime() - this.lastFrameTime) >= this.frameInterval)) {
-      this.lastFrameTime = new Date().getTime();
+    if (this.elVideo.readyState === this.elVideo.HAVE_ENOUGH_DATA) {
 
       const ctxOffScreen = this.elOffScreenCanvas.getContext('2d');
       const ctxOverlay = this.elOverlay.getContext('2d');
 
       // Draw selected area of video to OffScreenCanvas
-      ctxOffScreen.drawImage(this.elVideo, (this.oRect.x-this.elVideo.offsetLeft), (this.oRect.y-this.elVideo.offsetTop), this.oRect.w, this.oRect.h, 0, 0, this.oRect.w, this.oRect.h);
+      ctxOffScreen.drawImage(this.elVideo, (this.ox-this.elVideo.offsetLeft), (this.oy-this.elVideo.offsetTop), this.ow, this.oh, 0, 0, this.ow, this.oh);
 
       // get the imageData from OffScreenCanvas
-	  let rgba = ctxOffScreen.getImageData(0, 0, this.oRect.w, this.oRect.h);
+      let rgba = ctxOffScreen.getImageData(0, 0, this.ow, this.oh);
 
       // grayscale magic-numbers change as reqd. 
       //from http://www.poynton.com/notes/colour_and_gamma/ColorFAQ.html
       //const rgb2gs = [0.2125, 0.7154, 0.0721];
       const rgb2gs = [0.299, 0.587, 0.114];
+      let gcount = 0;
       for (let i = 0; i < rgba.data.length; i += 4) {
       	let mono = (rgba.data[i] * rgb2gs[0]) + (rgba.data[i+1] * rgb2gs[1]) + (rgba.data[i+1] * rgb2gs[2]);
         rgba.data[i] = mono;
         rgba.data[i+1] = mono;
         rgba.data[i+2] = mono;
+        gcount += (mono < this.gmax) ? 1 : 0;
       }
 
       // draw modified Image on overlayCanvas
       ctxOverlay.putImageData(rgba, 0, 0);
 
-      this.elStatus.innerText = hhmmss(Math.round(((new Date().getTime()) - this.startTime)/1000));
+      let now = new Date().getTime();
+      //fps is for graph updata only
+      if ((now - this.lastFrameTime) >= this.frameInterval) {
+        this.lastFrameTime = now;
+        this.graph.update(gcount);
+      }
+
+      this.elStatus.innerText = hhmmss(Math.round((now - this.startTime)/1000));
     }
 	this.rafID = requestAnimationFrame(this.onFrame.bind(this));
   }
@@ -175,8 +210,23 @@ class VideoProc {
 class App {
   constructor() {
     if (navigator.mediaDevices && navigator.getUserMedia && window.MediaRecorder) {
-      this.videoProc = new VideoProc();
-      this.el = el('#app.w-100.h-100.flex.justify-center.items-center', this.videoProc);
+
+      let urlParams = new URLSearchParams(window.location.search);
+      let w = parseInt(urlParams.get('w') || '0') || 0;
+      let h = parseInt(urlParams.get('h') || '0') || 0;
+      if (w <= 0) {
+        w = (h > 0) ? h : 0;
+      }
+      if (h <= 0) {
+        h = (w > 0) ? w : 0;
+      }
+      let fps = parseInt(urlParams.get('fps') || '25') || 25;
+      fps = ((fps > 0) && (fps <= 30)) ? fps : 25;
+      let gmax = parseInt(urlParams.get('gmax') || '127') || 127;
+      gmax = ((gmax >= 0) && (gmax <= 255)) ? gmax : 127;
+
+      this.videoProc = new VideoProc(w, h, fps);
+      this.el = el('#app.w-100.h-100.flex.justify-center.items-center.bg-black', this.videoProc);
     } else {
       this.el = el('p.bg-yellow.w-100.h-100.flex.justify-center.items-center', 'Supported/Tested browsers are Google Chrome 79+');
     }
