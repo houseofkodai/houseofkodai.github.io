@@ -96,7 +96,7 @@ class VideoProc {
       if (devlist.length < 2) {
         this.elStatus.innerText = 'No videoinput/camera device available.';
         this.elStatus.classList.add('red');        
-      } else if (devlist.length > 2) {
+      } else if (devlist.length > 1) {
         this.elSelectVideoDevice.addEventListener('input',this.selectVideoDevice,false);
         setChildren(this.elSelectVideoDevice, devlist);
         this.elSelectVideoDevice.style.display = 'block';
