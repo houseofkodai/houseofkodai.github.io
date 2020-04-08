@@ -24,65 +24,29 @@ function hhmmss(secs) {
   }
 }
 
-class Graph {
-  constructor(lineColor, vmax) {
-    this.lineColor = lineColor || 'black';
-    this.vmax = vmax;
-    this.data = [];
-    this.el = el('canvas.fixed');
-  }
-  onmount() {
-    //let parent = this.el.parentNode;
-    //this.el.width = parent.clientWidth;
-    this.ctx = this.el.getContext('2d');
-    this.ctx.width = this.el.clientWidth;
-    this.ctx.height = this.el.clientHeight;
-  }
-  update(value) {
-    const w = this.el.clientWidth;
-    const h = this.el.clientHeight;
-
-    //ensure that array length is less than width
-    if (this.data.length >= w) {
-      this.data.shift();
-    }
-    this.data.push(value/this.vmax); //% of vmax
-
-    this.ctx.clearRect(0, 0, w, h);
-    this.ctx.strokeStyle = this.lineColor;
-    this.ctx.beginPath();
-    const n = this.data.length;
-    this.data.forEach((val, i) => {
-      this.ctx.lineTo(i*w/n, h*val);
-    });
-    this.ctx.stroke();
-  }
-}
-
 class VideoProc {
   constructor(w,h,fps,gmax) {
 
-    this.ox = 0;
-    this.oy = 0;
     this.ow = w;
     this.oh = h;
     this.fps = fps;
     this.gmax = gmax || 127;
     this.lastFrameTime = 0;
     this.frameInterval = Math.round(1000 / this.fps);
+    this.data = [];
 
     this.elOffScreenCanvas = document.createElement('canvas');
     //hide-elements until camera permission has been allowed.
     //note: simpler to not stretch elVideo to w-100 otherwise overlay w/h needs to be adjusted by appropriate ratio elWidth/videoWidth elHeight/videoHeight
-    this.el = el('.w-100.h-100.flex.justify-center', [
-      this.elVideo = el('video.fixed.bg-yellow', {'style':{'display':'none'}}), 
-      this.elOverlay = el('canvas.absolute.ba.bw1.b--blue', {'style':{'display':'none'}}), 
-      this.graph = new Graph('yellow', (w*h)),
-      this.elStatus = el('.fixed.pa1.self-start.light-blue'),
+    this.el = el('.flex.justify-center.items-center.bg-white', [
+      this.elStatus = el('span.pa1.tc.fixed.self-start.bg-black.o-30.light-blue'),
+      this.elVideo = el('video.bg-yellow', {'style':{'display':'none'}}), 
+      this.elOverlay = el('canvas.fixed.ba.bw1.b--blue', {'style':{'display':'none'}}),
+      this.elGraph = el('canvas.fixed.self-end', {'style':{'display':'none'}}),
       this.elSelectVideoDevice = el('select.fixed', {'style':{'display':'none'}})
     ]);
 
-    //window.addEventListener('resize',this.onResize,false);
+    window.addEventListener('resize',this.onResize,false);
     this.el.addEventListener('dblclick',this.overlayDblClick,false);
     this.elVideo.addEventListener('loadedmetadata',this.videoOnLoadedMetaData,false);
   }
@@ -123,24 +87,17 @@ class VideoProc {
         (this.oh > this.elVideo.videoHeight)) {
       this.ow = Math.round(this.elVideo.videoWidth / 2);
       this.oh = Math.round(this.elVideo.videoHeight / 2);
-      this.graph.vmax = (this.ow * this.oh);
+      //this.graph.vmax = (this.ow * this.oh);
     }
     if (this.ow != this.elOverlay.width) {
       this.elOverlay.width = this.ow;
       this.elOverlay.height = this.oh;
+      this.elGraph.width = this.elVideo.videoWidth;
+      this.elGraph.height = Math.round(this.oh/4);
       this.elOffScreenCanvas.width = this.ow;
       this.elOffScreenCanvas.height = this.oh;
+      this.gsize = this.elOverlay.clientWidth * this.elOverlay.clientHeight;
     }
-    //note: bug in logic or behaviour - video element moves due to flex position but not updated below
-    let r = this.elVideo.getBoundingClientRect();
-    this.ox = r.left + Math.round((this.elVideo.videoWidth - this.ow)/2);
-    this.oy = r.top + Math.round((this.elVideo.videoHeight - this.oh)/2);
-    this.elOverlay.style.left = this.ox + 'px';
-    this.elOverlay.style.top = this.oy + 'px';
-    this.graph.el.style.left = r.left + 'px';
-    this.graph.el.style.top = r.height - 50 + 'px';
-    this.graph.el.width = this.elVideo.videoWidth;
-    this.graph.el.height = 50; //this.elVideo.videoHeight - (this.oy + this.oh + 2);
   }
   overlayDblClick = (evt) => {
     if (this.elStatus.style.display != 'none') {
@@ -153,6 +110,7 @@ class VideoProc {
     //console.log('onVideoOpen');
     this.elOverlay.style.display = 'block';
     this.elVideo.style.display = 'block';
+    this.elGraph.style.display = 'block';
     this.startTime = new Date().getTime();
     this.elVideo.srcObject = stream;
     this.elVideo.play();
@@ -166,6 +124,29 @@ class VideoProc {
     this.onResize();
     this.rafID = requestAnimationFrame(this.onFrame.bind(this));    
   }
+  updateGraph = (value) => {
+
+    if (!this.ctxGraph) {
+      this.ctxGraph = this.elGraph.getContext('2d');
+      this.ctxGraph.width = this.elGraph.clientWidth;
+      this.ctxGraph.height = this.elGraph.clientHeight;
+    }
+    const w = this.elGraph.clientWidth;
+    const h = this.elGraph.clientHeight;
+
+    if (this.data.length >= this.elGraph.width) { this.data.shift(); }
+    this.data.push(value);
+    const n = this.data.length;
+
+    this.ctxGraph.clearRect(0, 0, w, h);
+    this.ctxGraph.lineWidth = 2;
+    this.ctxGraph.strokeStyle = 'blue';
+    this.ctxGraph.beginPath();
+    this.data.forEach((val, i) => {
+      this.ctxGraph.lineTo(i*w/n, h*val);
+    });
+    this.ctxGraph.stroke();
+  }
   onFrame(timestamp) {
     if (this.elVideo.readyState === this.elVideo.HAVE_ENOUGH_DATA) {
 
@@ -173,7 +154,10 @@ class VideoProc {
       const ctxOverlay = this.elOverlay.getContext('2d');
 
       // Draw selected area of video to OffScreenCanvas
-      ctxOffScreen.drawImage(this.elVideo, (this.ox-this.elVideo.offsetLeft), (this.oy-this.elVideo.offsetTop), this.ow, this.oh, 0, 0, this.ow, this.oh);
+      ctxOffScreen.drawImage(this.elVideo, 
+        (this.elOverlay.offsetLeft-this.elVideo.offsetLeft), 
+        (this.elOverlay.offsetTop-this.elVideo.offsetTop), 
+        this.ow, this.oh, 0, 0, this.ow, this.oh);
 
       // get the imageData from OffScreenCanvas
       let rgba = ctxOffScreen.getImageData(0, 0, this.ow, this.oh);
@@ -198,7 +182,7 @@ class VideoProc {
       //fps is for graph updata only
       if ((now - this.lastFrameTime) >= this.frameInterval) {
         this.lastFrameTime = now;
-        this.graph.update(gcount);
+        this.updateGraph(gcount/this.gsize); //% of overlaypixels
       }
 
       this.elStatus.innerText = hhmmss(Math.round((now - this.startTime)/1000));
