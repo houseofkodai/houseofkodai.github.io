@@ -12,8 +12,11 @@
 <script>
 const { el, mount, setChildren} = redom
 
+function nstr(n) {
+  return ((n<10)?'0':'') + n;
+}
+
 function hhmmss(secs) {
-  let nstr = function(n) {return ((n<10)?'0':'') + n};
   if (secs >= (3600)) {
     let rsecs = secs % 3600;
     return nstr(Math.round(secs/3600)) + ':' + nstr(Math.round(rsecs/60)) + ':' + nstr(rsecs%60);
@@ -24,6 +27,68 @@ function hhmmss(secs) {
   }
 }
 
+function mkfname(duration,prefix) {
+  let now = new Date();
+  let mm = now.getMonth() + 1;
+  var dd = now.getDate();
+  return 'scam-' + (prefix || '') + now.getFullYear() + 
+    nstr(now.getMonth() + 1) + 
+    nstr(now.getDate()) + 
+    nstr(now.getHours()) +
+    nstr(now.getMinutes()) +
+    nstr(now.getSeconds()) +
+    '-' + duration + '.txt';
+}
+
+function saveToFile(data, fileName, type) {
+  type = type || 'application/octect-stream';
+  let a = document.createElement("a");
+  let url = URL.createObjectURL(new Blob([data], {type: type}));
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function() {
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);  
+  }, 0);
+}
+
+class Graph {
+  constructor(lineColor, vmax) {
+    this.lineColor = lineColor || 'black';
+    this.vmax = vmax;
+    this.data = [];
+    this.el = el('canvas.fixed.bg-white');
+  }
+  onmount() {
+    //let parent = this.el.parentNode;
+    //this.el.width = parent.clientWidth;
+    this.ctx = this.el.getContext('2d');
+    this.ctx.width = this.el.clientWidth;
+    this.ctx.height = this.el.clientHeight;
+  }
+  update(value) {
+    const w = this.el.clientWidth;
+    const h = this.el.clientHeight;
+
+    //ensure that array length is less than width
+    if (this.data.length >= w) {
+      this.data.shift();
+    }
+    this.data.push(value/this.vmax); //% of vmax
+
+    this.ctx.clearRect(0, 0, w, h);
+    this.ctx.strokeStyle = this.lineColor;
+    this.ctx.beginPath();
+    const n = this.data.length;
+    this.data.forEach((val, i) => {
+      this.ctx.lineTo(i*w/n, h*val);
+    });
+    this.ctx.stroke();
+  }
+}
+
 class VideoProc {
   constructor(w,h,fps,gmax) {
 
@@ -31,23 +96,26 @@ class VideoProc {
     this.oh = h;
     this.fps = fps;
     this.gmax = gmax || 127;
+    this.startTime = 0;
     this.lastFrameTime = 0;
     this.frameInterval = Math.round(1000 / this.fps);
     this.data = [];
+    this.fdata = [];
 
     this.elOffScreenCanvas = document.createElement('canvas');
     //hide-elements until camera permission has been allowed.
     //note: simpler to not stretch elVideo to w-100 otherwise overlay w/h needs to be adjusted by appropriate ratio elWidth/videoWidth elHeight/videoHeight
     this.el = el('.flex.justify-center.items-center.bg-white', [
-      this.elStatus = el('span.pa1.tc.fixed.self-start.bg-black.o-30.light-blue'),
-      this.elVideo = el('video.bg-yellow', {'style':{'display':'none'}}), 
-      this.elOverlay = el('canvas.fixed.ba.bw1.b--blue', {'style':{'display':'none'}}),
-      this.elGraph = el('canvas.fixed.self-end', {'style':{'display':'none'}}),
-      this.elSelectVideoDevice = el('select.fixed', {'style':{'display':'none'}})
+      el('.fixed.self-start.pa2.bg-white.o-50', [this.elStatus = el('span.tc', 'dblKlick Start/Stop')]),
+      this.elVideo = el('video.bg-yellow', {style:{display:'none'}}), 
+      this.elOverlay = el('canvas.fixed.ba.bw1.b--blue', {style:{display:'none'}}),
+      this.elGraph = el('canvas.fixed.self-end', {style:{display:'none'}}),
+      this.elSelectVideoDevice = el('select.fixed', {style:{display:'none'}})
     ]);
 
     window.addEventListener('resize',this.onResize,false);
-    this.el.addEventListener('dblclick',this.overlayDblClick,false);
+    this.el.addEventListener('dblclick',this.onDblClick,false);
+    this.elGraph.addEventListener('click',this.graphClick,false);
     this.elVideo.addEventListener('loadedmetadata',this.videoOnLoadedMetaData,false);
   }
   onmount() {
@@ -87,31 +155,39 @@ class VideoProc {
         (this.oh > this.elVideo.videoHeight)) {
       this.ow = Math.round(this.elVideo.videoWidth / 2);
       this.oh = Math.round(this.elVideo.videoHeight / 2);
-      //this.graph.vmax = (this.ow * this.oh);
     }
     if (this.ow != this.elOverlay.width) {
       this.elOverlay.width = this.ow;
       this.elOverlay.height = this.oh;
       this.elGraph.width = this.elVideo.videoWidth;
-      this.elGraph.height = Math.round(this.oh/4);
+      this.elGraph.height = this.elVideo.videoHeight/2;
       this.elOffScreenCanvas.width = this.ow;
       this.elOffScreenCanvas.height = this.oh;
       this.gsize = this.elOverlay.clientWidth * this.elOverlay.clientHeight;
     }
   }
-  overlayDblClick = (evt) => {
-    if (this.elStatus.style.display != 'none') {
-      this.elStatus.style.display = 'none';
+  graphClick = (evt) => {
+    //console.log('graphClick');
+  }
+  onDblClick = (evt) => {
+    //console.log('onDblClick');
+    if (0 == this.startTime) {
+      this.elOverlay.style.display = 'block';
+      this.elGraph.style.display = 'block';
+      this.startTime = new Date().getTime();
     } else {
-      this.elStatus.style.display = 'block';
+      saveToFile(this.fdata.join('\n'), 
+                 mkfname(Math.round((((new Date().getTime()) - this.startTime)/1000)), this.gsize+'-'), 
+                 'text/plain');
+      this.fdata = [];
+      this.startTime = 0;
+      this.elOverlay.style.display = 'none';
+      this.elGraph.style.display = 'none';
     }
   }
   onVideoOpen = (stream) => {
     //console.log('onVideoOpen');
-    this.elOverlay.style.display = 'block';
     this.elVideo.style.display = 'block';
-    this.elGraph.style.display = 'block';
-    this.startTime = new Date().getTime();
     this.elVideo.srcObject = stream;
     this.elVideo.play();
   }
@@ -121,11 +197,14 @@ class VideoProc {
   }
   videoOnLoadedMetaData = (evt) => {
     //console.log('videoOnLoadedMetaData', this.elVideo.offsetLeft, this.elVideo.offsetTop, this.elVideo.videoWidth, this.elVideo.videoHeight);
+    this.elOverlay.style.display = 'block';
+    this.elGraph.style.display = 'block';
     this.onResize();
+    this.elOverlay.style.display = 'none';
+    this.elGraph.style.display = 'none';
     this.rafID = requestAnimationFrame(this.onFrame.bind(this));    
   }
   updateGraph = (value) => {
-
     if (!this.ctxGraph) {
       this.ctxGraph = this.elGraph.getContext('2d');
       this.ctxGraph.width = this.elGraph.clientWidth;
@@ -148,7 +227,8 @@ class VideoProc {
     this.ctxGraph.stroke();
   }
   onFrame(timestamp) {
-    if (this.elVideo.readyState === this.elVideo.HAVE_ENOUGH_DATA) {
+    if ((this.elVideo.readyState === this.elVideo.HAVE_ENOUGH_DATA) && 
+        (0 < this.startTime)) {
 
       const ctxOffScreen = this.elOffScreenCanvas.getContext('2d');
       const ctxOverlay = this.elOverlay.getContext('2d');
@@ -182,10 +262,11 @@ class VideoProc {
       //fps is for graph updata only
       if ((now - this.lastFrameTime) >= this.frameInterval) {
         this.lastFrameTime = now;
+        this.fdata.push(now + ' ' + gcount);
         this.updateGraph(gcount/this.gsize); //% of overlaypixels
+        this.elStatus.innerText = hhmmss(Math.round((now - this.startTime)/1000));
       }
 
-      this.elStatus.innerText = hhmmss(Math.round((now - this.startTime)/1000));
     }
 	this.rafID = requestAnimationFrame(this.onFrame.bind(this));
   }
