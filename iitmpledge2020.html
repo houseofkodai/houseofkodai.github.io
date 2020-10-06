@@ -54,7 +54,6 @@ class TimedText {
       this.prev=el('h5.text-gray'),
       this.cur=el('h3'),
       this.next=el('h5.text-gray')])
-    //this.el.addEventListener('click', ()=>{ if (this.lindex < this.lindex.length) { this.stop() } else { this.start() }})
   }
   onmount() {
     this.cur.innerText = this.lines[this.lindex][1]
@@ -77,6 +76,8 @@ class TimedText {
     }
   }
   start() {
+    this.cur.innerText = this.lines[this.lindex][1]
+    this.next.innerText = this.lines[this.lindex+1][1]
     this.lindex = 0
     this.update()
   }
@@ -108,28 +109,32 @@ class App {
       .then(this.onusermedia.bind(this))
   }
   onusermedia(stream) {
-    this.player.addEventListener('play', this.startRecording.bind(this))
-    this.player.addEventListener('ended', this.ttext.stop())
-    this.recorder.addEventListener('ended', ()=>{this.btnPlay.innerText = 'Play'})
-    this.btnRecord.addEventListener('click', this.onRecordClick.bind(this))
-    this.btnPlay.addEventListener('click', this.onPlayClick.bind(this))
     this.audioRecorder = new MediaRecorder(stream)
     this.audioRecorder.addEventListener('dataavailable', this.onrecordata.bind(this))
-  }
-  startRecording() {
-    this.ttext.index = 0
-    this.ttext.start()
-    this.audioRecorder.start()
-    this.btnRecord.innerText = 'recording...'
-    setTimeout(()=>{
-        this.btnRecord.innerText = 'Record'
-        if (this.audioRecorder.state != 'inactive') { this.audioRecorder.stop() }
-      }, (this.player.duration*1000))
+
+    this.player.addEventListener('play', this.startRecording.bind(this))
+    this.player.addEventListener('ended', this.onplayend.bind(this))
+    this.recorder.addEventListener('ended', ()=>{this.btnPlay.innerText = 'Play'})
+    this.btnPlay.addEventListener('click', this.onPlayClick.bind(this))
+    this.btnRecord.addEventListener('click', ()=>{this.player.play()})
   }
   onrecordata(e) {
     this.url = URL.createObjectURL(e.data)
     this.btnDownload.href = this.url
     this.recorder.src = this.url
+  }
+  startRecording() {
+    if ('Play' != this.btnPlay.innerText) { return }
+    this.url = false
+    this.ttext.start()
+    this.audioRecorder.start()
+    this.btnRecord.innerText = 'recording...'
+  }
+  onplayend() {
+    this.audioRecorder.stop()
+    this.ttext.stop()
+    this.btnRecord.innerText = 'Record'
+    this.player.currentTime = 0
   }
   onRecordClick() {
     if (this.btnRecord.innerText == 'Record') {
@@ -143,12 +148,15 @@ class App {
     }
   }
   onPlayClick() {
-    if (this.btnRecord.innerText != 'Record') { return }
+    if (!this.url) { return }
     if (this.btnPlay.innerText == 'Play') {
+      this.btnPlay.innerText = 'Stop'
+      this.player.currentTime = 0
       this.recorder.currentTime = 0
       this.recorder.play()
-      this.btnPlay.innerText = 'Stop'
+      this.player.play()
     } else {
+      this.player.pause()
       this.recorder.pause()
       this.btnPlay.innerText = 'Play'
     }
