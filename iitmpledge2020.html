@@ -34,7 +34,7 @@ const timed_text = [
 [4063, 'AND SECULAR IDEAL OF OUR COUNTRY'],
 [2788, 'AND UTILISE OUR KNOWLEDGE'],
 [4804, 'IN THE SERVICE OF OUR NATION AND SOCIETY'],
-[2505, 'SAHA NAA BAAVATU'],
+[2505, 'SAHA NAA VAAVATU'],
 [2566, 'SAHA NAU BHUNAKTU'],
 [3751, 'SAHA VEERYAM KARAVAA VAHAI'],
 [1883, 'TEJASVI'],
@@ -92,7 +92,7 @@ class App {
       el('h5', '2020: IIT Madras Pledge'),
       el('p', 'Do use a headset with a microphone.'),
       el('p', 'When you click to Record, you will hear the highlighted words being spoken with a gap for you to read/repeat the words aloud, which will be recorded.'),
-      el('p', 'Upon completion, you can download the recorded audio and email it to foo@bar.com'),
+      el('p', 'Upon completion, download the recorded audio and email it to ', el('a', {href:'mailto:dj+2020iitmpledge@ee.iitm.ac.in?subject=ReadAlong:+2020+IITM+Pledge'}, 'dj+2020iitmpledge@ee.iitm.ac.in')),
       this.player = el('audio', {controls:true, controlsList:'nodownload', src:'iitm-pledge-2018.webm', type:'audio/webm;codecs=opus'}),
       this.recorder = el('audio', {controls:false}),
       el('.btn-group.btn-group-block', [
@@ -173,3 +173,4 @@ window.addEventListener('load', function(){setTimeout(main,0)}, false)
  </script>
 </body>
 </html>
+
