@@ -105,7 +105,7 @@ class App {
     )
   }
   onmount() {
-    navigator.mediaDevices.getUserMedia({audio:true, video:false})
+    navigator.mediaDevices.getUserMedia({audio:{autoGainControl:true,noiseSuppression:true,echoCancellation:true}, video:false})
       .then(this.onusermedia.bind(this))
   }
   onusermedia(stream) {
@@ -173,4 +173,3 @@ window.addEventListener('load', function(){setTimeout(main,0)}, false)
  </script>
 </body>
 </html>
-
