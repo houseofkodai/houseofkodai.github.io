@@ -3,23 +3,19 @@ layout: true
 class: center, middle, inverse
 ---
 
-.left-column[
-## the challenge
-]
-.right-column[
+# the challenge
+
 currently government officials have no _easy_ way to verify the validity of documents legally issued.
-]
 
 ---
 
-.left-column[
-## on-line services
-]
+# on-line services
 
-.right-column[
 * depends upon _reliable_ internet connectivity.
+
 * high complexity/cost to defend against ever growing cyber-threats.
-]
+
+* complex to use.
 
 ---
 
