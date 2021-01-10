@@ -10,7 +10,7 @@ currently government officials have no _easy_ way to verify the validity of docu
 ---
 layout: false
 class: center
----
+
 # on-line services
 
 .left[
@@ -22,33 +22,27 @@ class: center
 ]
 ---
 
-.left-column[
-## innovation
-]
+# innovation
 
-.right-column[
+.left[
 * online-issuance
 * offline-verification
 ]
 
 ---
 
-.left-column[
-## user experience
-]
+# user experience
 
-.right-column[
+.left[
 * A mobile app that receives digitally signed electronic documents and displays the document on screen.
 * Another mobile app to perform _offline_ verification by scanning the image and extracting/verifying the digital signatures.
 ]
 
 ---
 
-.left-column[
-## technology
-]
+# technology
 
-.right-column[
+.left[
 * blockchain: append only ledger of digitally signed transactions.
 * Embedding ML generated watermark of signatures to enable instant scanning/verification.
 ]
