@@ -14,11 +14,11 @@ class: center
 # on-line services
 
 .row[
-.column[
+.flex-half[
 ![e-governance](https://cdn1.expresscomputer.in/wp-content/uploads/2019/02/28154124/e-Governance-750x430.jpg)
 ]
 
-.column[
+.flex-half[
 * depends upon _reliable_ internet connectivity.
 * not easy to use.
 * high complexity/cost to defend against ever growing cyber-threats.
