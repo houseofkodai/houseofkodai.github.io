@@ -37,8 +37,18 @@ code {
 .remark-code, .remark-inline-code { font-family: 'Ubuntu Mono'; }
 .remark-code-line-highlighted     { background-color: #373832; }
 
-.twocol {
-  column-count: 2;
+.row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  flex-basis: 100%;
+  flex: 1;
 }
       
 .pull-left {
