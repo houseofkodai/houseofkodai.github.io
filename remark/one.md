@@ -13,11 +13,11 @@ class: center
 
 # on-line services
 
-.left-column[
+.pull-left[
 ![e-governance](https://cdn1.expresscomputer.in/wp-content/uploads/2019/02/28154124/e-Governance-750x430.jpg)
 ]
 
-.right-column[
+.pull-right[
 * depends upon _reliable_ internet connectivity.
 
 * not easy to use.
