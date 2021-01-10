@@ -8,15 +8,18 @@ class: center, middle, inverse
 currently government officials have no _easy_ way to verify the validity of documents legally issued.
 
 ---
-
+layout: false
+class: center
+---
 # on-line services
 
+.left[
 * depends upon _reliable_ internet connectivity.
 
 * high complexity/cost to defend against ever growing cyber-threats.
 
 * complex to use.
-
+]
 ---
 
 .left-column[
