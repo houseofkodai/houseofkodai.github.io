@@ -28,9 +28,11 @@ class: center
 .left[
 ## digital transactions that are:
 
-1. issued online
+1. recorded in a blockchain.
 
-2. verified offline
+2. issued _online_.
+
+3. verified _offline_.
 ]
 
 ---
@@ -40,7 +42,7 @@ class: center
 .left[
 ## mobile-first:
 
-* User installs an app to receive/display electronic transaction records issued to them.
+* User installs an app to **receive/display** electronic transaction records issued to them.
 
 * Authorities **verify** by scanning the remote display and extracting/validating digital signature of transaction from that image.
 
