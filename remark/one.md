@@ -26,6 +26,7 @@ class: center
 
 .left[
 * online-issuance
+
 * offline-verification
 ]
 
@@ -35,6 +36,7 @@ class: center
 
 .left[
 * A mobile app that receives digitally signed electronic documents and displays the document on screen.
+
 * Another mobile app to perform _offline_ verification by scanning the image and extracting/verifying the digital signatures.
 ]
 
@@ -44,5 +46,6 @@ class: center
 
 .left[
 * blockchain: append only ledger of digitally signed transactions.
+
 * Embedding ML generated watermark of signatures to enable instant scanning/verification.
 ]
