@@ -1,3 +1,8 @@
+name: inverse
+layout: true
+class: center, middle, inverse
+---
+
 # the challenge
 currently government officials have no _easy_ way to verify the validity of documents legally issued.
 
