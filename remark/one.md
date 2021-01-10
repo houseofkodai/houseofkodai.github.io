@@ -16,18 +16,21 @@ class: center
 .left[
 * depends upon _reliable_ internet connectivity.
 
+* not easy to use.
+
 * high complexity/cost to defend against ever growing cyber-threats.
 
-* complex to use.
 ]
 ---
 
 # innovation
 
 .left[
-* online-issuance
+## digital transactions that are:
 
-* offline-verification
+1. issued online
+
+2. verified offline
 ]
 
 ---
@@ -35,9 +38,12 @@ class: center
 # user experience
 
 .left[
-* A mobile app that receives digitally signed electronic documents and displays the document on screen.
+## mobile-first:
 
-* Another mobile app to perform _offline_ verification by scanning the image and extracting/verifying the digital signatures.
+* User installs an app to receive/display electronic transaction records issued to them.
+
+* Authorities **verify** by scanning the remote display and extracting/validating digital signature of transaction from that image.
+
 ]
 
 ---
@@ -47,5 +53,5 @@ class: center
 .left[
 * blockchain: append only ledger of digitally signed transactions.
 
-* Embedding ML generated watermark of signatures to enable instant scanning/verification.
+* Embedding ML generated watermark of signatures that enables instant scanning/verification.
 ]
