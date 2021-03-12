@@ -6,7 +6,7 @@ don't be dumb.
 
 
 ---
-# TV/Radio and OTT Ads are dumb.
+# TV/OTT Ads are dumb.
 
 * used at best for brand recall.
 * content produced for this medium is for passive consumption only.
@@ -38,12 +38,13 @@ don't be dumb.
 ---
 # wow, but how ?
 
-* innovative **deep-tech** solution, developed in-house, to converts dumb TV/Radio Ads into interactive Ads.
-* This **changes** the way we interact with content we consume, be it on TV or Radio.
+* innovative **deep-tech** solution, developed in-house, to converts dumb TV Ads into interactive Ads.
+* This **changes** the way we interact with content we consume, be it on TV or other mediums. 
+	* Incidentally, our tech. can work with radio, alexa, google home, etc.
 
 _
 * Now consumers can just **click on our app** and **instantly** interact with the Brand
-  * fulfilling their desire while watching TV/OTT/Radio/Youtube...
+  * fulfilling their desire while watching TV/OTT/Youtube...
 
 
 ---
@@ -117,7 +118,7 @@ _
 
 
 ---
-# any plans of monetization ?
+# any ideas of monetization ?
 
 * **pay per click**
 
@@ -147,7 +148,7 @@ _
   * Administrative
 
 * and next year
-  * $25-50M towards 100M user acquisition
+  * $25-50M towards 100M user acquisition.
 
 
 ---
